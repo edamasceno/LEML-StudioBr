@@ -74,7 +74,7 @@ namespace LEML_StudioBr
             Application.Exit();
         }
 
-
+        // Identifica que tipo de elemento esta sendo adicionado, cria o objeto e adiciona a lista do canvas
         private void pictureBox1_Click(object sender, EventArgs e)
         {
             Point relativePosition = GetRelativeCursorPos();
@@ -85,7 +85,7 @@ namespace LEML_StudioBr
                 return;
             }
             else
-            if (tipoAmbiente <= 4)
+            if (tipoAmbiente <= 4) // Elementos de ambientes
             {
                 Box box = new ClassBox(relativePosition.X, relativePosition.Y, info.Text, this.tipoAmbiente);
                 box.PositionX -= box.Width / 2;
@@ -94,6 +94,24 @@ namespace LEML_StudioBr
 
             }
             else
+            if (tipoAmbiente == 15) // Elemento do Agente de IA
+            {
+                Agente ag = (Agente) new Elemento(relativePosition.X, relativePosition.Y, info.Text, this.tipoAmbiente);
+                ag.PositionX -= ag.Width / 2;
+                ag.PositionY -= ag.Height / 2;
+                
+                using (frmInfoAgente frmInfoAgente = new frmInfoAgente(ag))
+                {
+                    if (frmInfoAgente.ShowDialog() == DialogResult.OK)
+                    {
+                        ag = (Agente)frmInfoAgente.Result;
+                    }
+                }
+                
+                _canvas.AddBoxToList(ag);
+
+            }
+            else // Outros elementos
             {
                 Elemento ele = new Elemento(relativePosition.X, relativePosition.Y, info.Text, this.tipoAmbiente);
                 ele.PositionX -= ele.Width / 2;
@@ -104,8 +122,7 @@ namespace LEML_StudioBr
                     {
                         if (frmInfoElemento.ShowDialog() == DialogResult.OK)
                         {
-                            ele = frmInfoElemento.theEle;
-
+                            ele = frmInfoElemento.Result;
                         }
                     }
                 }
@@ -661,6 +678,8 @@ namespace LEML_StudioBr
             }
         }
 
+        // Contrucao do botao de IA
+        // Campos necessarios? Ajustar source
         private void btnAgent_Click(object sender, EventArgs e)
         {
             info.Text = "Agente de IA";
