@@ -130,7 +130,7 @@
         private Button btnCancelar;
         private Label label1;
         private Label label2;
-        private TextBox txtWhat;
-        private TextBox txtHow;
+        protected TextBox txtWhat;
+        protected TextBox txtHow;
     }
 }

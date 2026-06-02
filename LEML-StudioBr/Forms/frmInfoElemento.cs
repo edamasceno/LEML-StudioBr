@@ -13,7 +13,7 @@ namespace LEML_StudioBr.Forms
 {
     public partial class frmInfoElemento : Form
     {
-        protected Elemento theEle;
+        public Elemento theEle;
 
         public Elemento Result => theEle;
 
@@ -22,38 +22,38 @@ namespace LEML_StudioBr.Forms
             InitializeComponent();
             theEle = Ele;
             LoadElemento(Ele);
-            //txtWhat.Text = Ele.TopText;
-            //txtHow.Text = Ele.BottomText;
+            txtWhat.Text = Ele.TopText;
+            txtHow.Text = Ele.BottomText;
         }
 
-        protected virtual void LoadElemento(Elemento Ele)
+        public virtual void LoadElemento(Elemento Ele)
         {
             txtWhat.Text = Ele.TopText;
             txtHow.Text = Ele.BottomText;
         }
 
-        protected virtual void SaveElemento()
+        public virtual void SaveElemento()
         {
             theEle.TopText = txtWhat.Text;
             theEle.BottomText = txtHow.Text;
         }
 
-        protected virtual void txtWhat_Enter(object sender, EventArgs e)
+        public virtual void txtWhat_Enter(object sender, EventArgs e)
         {
             (sender as TextBox).BackColor = Color.LightYellow;
         }
 
-        protected virtual void txtWhat_Leave(object sender, EventArgs e)
+        public virtual void txtWhat_Leave(object sender, EventArgs e)
         {
             (sender as TextBox).BackColor = Color.White;
         }
 
-        protected virtual void frmInfoElemento_Load(object sender, EventArgs e)
+        public virtual void frmInfoElemento_Load(object sender, EventArgs e)
         {
             
         }
 
-        protected virtual void btnCancelar_Click(object sender, EventArgs e)
+        public virtual void btnCancelar_Click(object sender, EventArgs e)
         {
             theEle.SetElemento("", "");
             
@@ -61,7 +61,7 @@ namespace LEML_StudioBr.Forms
             this.Close();
         }
 
-        protected virtual void btnConfirmar_Click(object sender, EventArgs e)
+        public virtual void btnConfirmar_Click(object sender, EventArgs e)
         {
             if (string.IsNullOrEmpty(txtWhat.Text))
             {
