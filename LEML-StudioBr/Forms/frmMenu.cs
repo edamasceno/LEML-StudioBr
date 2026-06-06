@@ -8,7 +8,6 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Windows.Forms;
 using System.Xml.Schema;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace LEML_StudioBr
 {
@@ -17,22 +16,17 @@ namespace LEML_StudioBr
     {
         public List<Box> Boxes { get; set; } = new List<Box>();
         public List<Connection> Connections { get; set; } = new List<Connection>();
-        //public DateTime SaveDate { get; set; } = DateTime.Now;
-        //public string Version { get; set; } = "1.0";
     }
 
     public partial class frmMenu : Form
     {
-
         private Canvas _canvas;
         private Box? _selectedBox;
         private int tipoAmbiente = 0;
 
-
         private Box _firstSelectedBox = null;
         private Box _secondSelectedBox = null;
         private string _selectedRelationshipType = "";
-
 
         private Point clickPoint = Point.Empty;
 
@@ -47,7 +41,9 @@ namespace LEML_StudioBr
         private Point panStartPoint = Point.Empty;
         private PointF panOffset = PointF.Empty;
 
-
+        // Variáveis da Borracha
+        private bool _modoBorracha = false;
+        private Box _boxParaDesconectar = null;
 
 
         public frmMenu()
@@ -55,10 +51,61 @@ namespace LEML_StudioBr
             _canvas = new Canvas();
             InitializeComponent();
 
+          
+            Button btnBorracha = new Button();
+            btnBorracha.Text = "Borracha";
+            btnBorracha.Name = "btnBorracha";
+            btnBorracha.Size = new Size(100, 40);
+
+            // Define a posição do botão (Ajuste o X e Y conforme o seu layout)
+            btnBorracha.Location = new Point(10, 800);
+
+            // Destaque visual
+            btnBorracha.BackColor = Color.LightCoral;
+            btnBorracha.FlatStyle = FlatStyle.Flat;
+
+            // Assina o evento de clique
+            btnBorracha.Click += new EventHandler(this.btnBorracha_Click);
+
+            // Adiciona o botão na tela principal
+            this.Controls.Add(btnBorracha);
+            btnBorracha.BringToFront();
+          
+
             ConfigurePictureBoxWithScroll();
-
             pictureBox1.Focus();
+        }
 
+        
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (keyData == Keys.Escape)
+            {
+                bool interceptado = false;
+
+                // Cancela criação de conexão
+                if (!string.IsNullOrEmpty(_selectedRelationshipType))
+                {
+                    CancelConnectionCreation();
+                    interceptado = true;
+                }
+
+                // Cancela a ferramenta da Borracha
+                if (_modoBorracha)
+                {
+                    _boxParaDesconectar?.Unselect();
+                    _modoBorracha = false;
+                    _boxParaDesconectar = null;
+                    pictureBox1.Cursor = Cursors.Default;
+                    info.Text = "Ação cancelada.";
+                    pictureBox1.Invalidate();
+                    interceptado = true;
+                }
+
+                if (interceptado) return true; // Bloqueia propagação do ESC
+            }
+
+            return base.ProcessCmdKey(ref msg, keyData);
         }
 
         private Point GetRelativeCursorPos()
@@ -68,13 +115,11 @@ namespace LEML_StudioBr
             return relativePosition;
         }
 
-
         private void fecharToolStripMenuItem_Click(object sender, EventArgs e)
         {
             Application.Exit();
         }
 
-        // Identifica que tipo de elemento esta sendo adicionado, cria o objeto e adiciona a lista do canvas
         private void pictureBox1_Click(object sender, EventArgs e)
         {
             Point relativePosition = GetRelativeCursorPos();
@@ -84,22 +129,19 @@ namespace LEML_StudioBr
                 info.Text = ("Selecione um tipo de ambiente antes de adicionar ao plano.");
                 return;
             }
-            else
-            if (tipoAmbiente <= 4) // Elementos de ambientes
+            else if (tipoAmbiente <= 4) // Elementos de ambientes
             {
                 Box box = new ClassBox(relativePosition.X, relativePosition.Y, info.Text, this.tipoAmbiente);
                 box.PositionX -= box.Width / 2;
                 box.PositionY -= box.Height / 2;
                 _canvas.AddBoxToList(box);
-
             }
-            else
-            if (tipoAmbiente == 15) // Elemento do Agente de IA
+            else if (tipoAmbiente == 15) // Elemento do Agente de IA
             {
-                Agente ag = (Agente) new Elemento(relativePosition.X, relativePosition.Y, info.Text, this.tipoAmbiente);
+                Agente ag = (Agente)new Elemento(relativePosition.X, relativePosition.Y, info.Text, this.tipoAmbiente);
                 ag.PositionX -= ag.Width / 2;
                 ag.PositionY -= ag.Height / 2;
-                
+
                 using (frmInfoAgente frmInfoAgente = new frmInfoAgente(ag))
                 {
                     if (frmInfoAgente.ShowDialog() == DialogResult.OK)
@@ -107,9 +149,7 @@ namespace LEML_StudioBr
                         ag = (Agente)frmInfoAgente.Result;
                     }
                 }
-                
                 _canvas.AddBoxToList(ag);
-
             }
             else // Outros elementos
             {
@@ -135,11 +175,6 @@ namespace LEML_StudioBr
 
             tipoAmbiente = 0; // Reset tipoAmbiente after adding a box
             info.Text = "";
-
-
-
-
-
         }
 
         private void pictureBox1_MouseDown(object sender, MouseEventArgs e)
@@ -150,7 +185,6 @@ namespace LEML_StudioBr
                 pictureBox1.Refresh();
             }
         }
-
 
         private void pictureBox1_MouseMove(object sender, MouseEventArgs e)
         {
@@ -163,9 +197,6 @@ namespace LEML_StudioBr
 
         private void pictureBox1_Paint(object sender, PaintEventArgs e)
         {
-
-
-
             // Desenha feedback visual para seleção de conexão
             if (_firstSelectedBox != null)
             {
@@ -178,8 +209,7 @@ namespace LEML_StudioBr
                     using (Font font = new Font("Arial", 10, FontStyle.Bold))
                     using (Brush brush = new SolidBrush(Color.Red))
                     {
-                        e.Graphics.DrawString("Aguardando segunda seleção...", font, brush,
-                                            new PointF(10, 10));
+                        e.Graphics.DrawString("Aguardando segunda seleção...", font, brush, new PointF(10, 10));
                     }
                 }
             }
@@ -201,10 +231,6 @@ namespace LEML_StudioBr
 
             // Desenha o conteúdo com zoom
             _canvas.Draw(e.Graphics, zoomLevel);
-
-
-
-
         }
 
         private void btnAmb_SalaFisica_Click(object sender, EventArgs e)
@@ -223,14 +249,12 @@ namespace LEML_StudioBr
         {
             info.Text = "Ambiente Assíncrono";
             tipoAmbiente = 3;
-
         }
 
         private void btnAmb_Simulado_Click(object sender, EventArgs e)
         {
             info.Text = "Ambiente Simulado";
             tipoAmbiente = 4;
-
         }
 
         private void btnInfo_Click(object sender, EventArgs e)
@@ -272,6 +296,13 @@ namespace LEML_StudioBr
 
         private void pictureBox1_MouseClick(object sender, MouseEventArgs e)
         {
+            // === INTERCEPTAÇÃO DA BORRACHA ===
+            if (_modoBorracha && e.Button == MouseButtons.Left)
+            {
+                HandleBorrachaSelection(e.X, e.Y);
+                return; // Impede que a tela tente mover ou selecionar as boxes normalmente
+            }
+
             // Se estamos no modo de seleção de conexão
             if (!string.IsNullOrEmpty(_selectedRelationshipType) && pictureBox1.Cursor == Cursors.Cross)
             {
@@ -281,7 +312,7 @@ namespace LEML_StudioBr
 
             if (e.Button == MouseButtons.Left)
             {
-                // Sua lógica normal de clique esquerdo aqui...
+                // Lógica normal de clique esquerdo
                 Point relativePosition = GetRelativeCursorPos();
                 this.clickPoint = new Point(e.X, e.Y);
                 _canvas.Select(e.X, e.Y);
@@ -289,25 +320,91 @@ namespace LEML_StudioBr
             }
             else if (e.Button == MouseButtons.Right)
             {
-                // Verifica se clicou em alguma box
+                // Verifica se clicou em alguma box para abrir menu
                 foreach (Box box in _canvas.GetBoxes())
                 {
                     if (box.IsInCollision(e.X, e.Y))
                     {
-                        _selectedBox = box; // Armazena a box selecionada
-                        clickPoint = new Point(e.X, e.Y); // Armazena o ponto do clique
+                        _selectedBox = box;
+                        clickPoint = new Point(e.X, e.Y);
 
-                        // Mostra o menu de contexto
+                        // CORREÇÃO: Menu de contexto descomentado!
                         Contexto.Show(pictureBox1, e.Location);
                         return;
                     }
                 }
-                // Se não clicou em nenhuma box, limpa a seleção
                 _selectedBox = null;
                 clickPoint = Point.Empty;
             }
         }
 
+        // ==========================================
+        // MÉTODOS DA BORRACHA
+        // ==========================================
+        private void btnBorracha_Click(object sender, EventArgs e)
+        {
+            // Alterna o estado da borracha ao clicar
+            _modoBorracha = !_modoBorracha;
+
+            if (_modoBorracha)
+            {
+                // Desativa a criação de conexão para evitar conflito
+                ResetConnectionSelection();
+                tipoAmbiente = 0;
+
+                _boxParaDesconectar = null;
+                pictureBox1.Cursor = Cursors.NoMove2D; // Muda o cursor
+                info.Text = "Borracha Ativa: Clique na primeira Box da conexão que deseja apagar.";
+            }
+            else
+            {
+                // Desliga a borracha
+                _boxParaDesconectar?.Unselect();
+                _boxParaDesconectar = null;
+                pictureBox1.Cursor = Cursors.Default;
+                info.Text = "";
+                pictureBox1.Invalidate();
+            }
+        }
+
+        private void HandleBorrachaSelection(int x, int y)
+        {
+            Box boxClicada = _canvas.SelectRC(x, y);
+
+            if (boxClicada == null)
+            {
+                MessageBox.Show("Selecione um elemento válido.", "Borracha",
+                                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (_boxParaDesconectar == null)
+            {
+                // Primeiro clique armazena a Origem/Destino
+                _boxParaDesconectar = boxClicada;
+                _boxParaDesconectar.Select();
+                info.Text = $"Borracha: Box '{boxClicada.OriginalName}' selecionada. Agora clique na outra Box conectada.";
+            }
+            else
+            {
+                // Segundo clique desfaz a conexão e limpa
+                if (_boxParaDesconectar.Id != boxClicada.Id)
+                {
+                    _canvas.RemoveConnection(_boxParaDesconectar, boxClicada);
+                    MessageBox.Show("Conexão removida com sucesso!", "Borracha",
+                                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+
+                _boxParaDesconectar?.Unselect();
+                _modoBorracha = false;
+                _boxParaDesconectar = null;
+                pictureBox1.Cursor = Cursors.Default;
+                info.Text = "";
+
+                pictureBox1.Invalidate(); // Redesenha apagando a linha
+            }
+        }
+        // ==========================================
 
         private void HandleConnectionSelection(int x, int y)
         {
@@ -315,36 +412,28 @@ namespace LEML_StudioBr
 
             if (selectedBox == null)
             {
-                MessageBox.Show("Selecione um elemento válido.", "Aviso",
-                              MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Selecione um elemento válido.", "Aviso", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
             if (_firstSelectedBox == null)
             {
-                // Primeira seleção
                 _firstSelectedBox = selectedBox;
-                _firstSelectedBox.Select(); // Destaca o primeiro elemento
+                _firstSelectedBox.Select();
 
                 MessageBox.Show($"Primeiro elemento selecionado: {_firstSelectedBox.OriginalName}\nAgora selecione o segundo elemento.",
                               "Selecionar Segundo Elemento", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             else
             {
-                // Segunda seleção - não pode ser o mesmo elemento
                 if (_firstSelectedBox == selectedBox)
                 {
-                    MessageBox.Show("Não é possível conectar um elemento com ele mesmo.",
-                                  "Aviso", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("Não é possível conectar um elemento com ele mesmo.", "Aviso", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 _secondSelectedBox = selectedBox;
-
-                // Cria a conexão
                 CreateConnectionBetweenBoxes();
-
-                // Reseta a seleção
                 ResetConnectionSelection();
             }
 
@@ -355,27 +444,22 @@ namespace LEML_StudioBr
         {
             try
             {
-                // Define a origem da relação (pode ser ajustado conforme necessidade)
                 string relationOrigin = "source";
-                string srcCardinality = "1"; // Cardinalidade padrão
-                string tgtCardinality = "1"; // Cardinalidade padrão
+                string srcCardinality = "1";
+                string tgtCardinality = "1";
 
-                // Adiciona a conexão ao canvas
                 _canvas.AddConnection(_firstSelectedBox, _secondSelectedBox,
                                     _selectedRelationshipType, relationOrigin,
                                     srcCardinality, tgtCardinality);
 
-                MessageBox.Show($"Conexão {_selectedRelationshipType} criada entre:\n" +
-                               $"{_firstSelectedBox.OriginalName} e {_secondSelectedBox.OriginalName}",
+                MessageBox.Show($"Conexão {_selectedRelationshipType} criada entre:\n{_firstSelectedBox.OriginalName} e {_secondSelectedBox.OriginalName}",
                                "Conexão Criada", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Erro ao criar conexão: {ex.Message}", "Erro",
-                              MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Erro ao criar conexão: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-
 
         private void ResetConnectionSelection()
         {
@@ -393,35 +477,27 @@ namespace LEML_StudioBr
         private void CancelConnectionCreation()
         {
             ResetConnectionSelection();
-            MessageBox.Show("Criação de conexão cancelada.", "Info",
-                          MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("Criação de conexão cancelada.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
-
 
         private void toolStripMenuItem_Apagar_Click(object sender, EventArgs e)
         {
-
-
             if (_selectedBox != null)
             {
-                var result = MessageBox.Show(
-                    $"Deseja apagar a box '{_selectedBox.OriginalName}'?",
-                    "Confirmar Exclusão",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question);
+                var result = MessageBox.Show($"Deseja apagar a box '{_selectedBox.OriginalName}'?",
+                                             "Confirmar Exclusão", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
                 if (result == DialogResult.Yes)
                 {
                     _canvas.RemoveBoxFromList(_selectedBox);
                     _selectedBox = null;
                     clickPoint = Point.Empty;
-                    pictureBox1.Refresh(); // Atualiza a tela
+                    pictureBox1.Refresh();
                 }
             }
             else
             {
-                MessageBox.Show("Nenhuma box selecionada para apagar.", "Aviso",
-                              MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Nenhuma box selecionada para apagar.", "Aviso", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -431,26 +507,11 @@ namespace LEML_StudioBr
             tipoAmbiente = 20;
         }
 
-        private void statusStrip1_ItemClicked(object sender, ToolStripItemClickedEventArgs e)
-        {
+        private void statusStrip1_ItemClicked(object sender, ToolStripItemClickedEventArgs e) { }
 
-        }
-
-        private void toolStripSplitButtonZoomIn_ButtonClick(object sender, EventArgs e)
-        {
-            ZoomIn();
-        }
-
-        private void toolStripSplitButtonZoomOut_ButtonClick(object sender, EventArgs e)
-        {
-            ZoomOut();
-        }
-
-        private void toolStripStatusLBLZoom_DoubleClick(object sender, EventArgs e)
-        {
-            ResetZoom();
-        }
-
+        private void toolStripSplitButtonZoomIn_ButtonClick(object sender, EventArgs e) => ZoomIn();
+        private void toolStripSplitButtonZoomOut_ButtonClick(object sender, EventArgs e) => ZoomOut();
+        private void toolStripStatusLBLZoom_DoubleClick(object sender, EventArgs e) => ResetZoom();
 
         private void ZoomIn()
         {
@@ -478,26 +539,18 @@ namespace LEML_StudioBr
 
         private void UpdateZoom()
         {
-            // Atualiza o label de zoom
             toolStripStatusLBLZoom.Text = $"{zoomLevel * 100:0}%";
-
-            // Atualiza o tamanho do PictureBox para o scroll
             UpdatePictureBoxSize();
-
-            // Força o redesenho do PictureBox
             pictureBox1.Invalidate();
         }
 
-
         private void ConfigurePictureBoxWithScroll()
         {
-            // Ajusta o tamanho do PictureBox para o conteúdo
             UpdatePictureBoxSize();
         }
 
         private void UpdatePictureBoxSize()
         {
-            // Calcula o tamanho necessário baseado no conteúdo com zoom
             int maxX = 0;
             int maxY = 0;
 
@@ -508,10 +561,8 @@ namespace LEML_StudioBr
                 maxY = Math.Max(maxY, boxRect.Bottom);
             }
 
-            // Adiciona margem
             pictureBox1.Size = new Size(maxX + 100, maxY + 100);
         }
-
 
         public void ExportToJpg(bool exportVisibleAreaOnly = false, int quality = 95)
         {
@@ -527,15 +578,13 @@ namespace LEML_StudioBr
 
                     if (exportVisibleAreaOnly)
                     {
-                        // Exporta apenas a área visível
                         bitmap = new Bitmap(pictureBox1.Width, pictureBox1.Height);
                         pictureBox1.DrawToBitmap(bitmap, new Rectangle(0, 0, bitmap.Width, bitmap.Height));
                     }
                     else
                     {
-                        // Exporta todo o conteúdo
                         Rectangle bounds = CalculateContentBounds();
-                        bounds.Inflate(50, 50); // Margem
+                        bounds.Inflate(50, 50);
 
                         bitmap = new Bitmap(bounds.Width, bounds.Height);
 
@@ -548,12 +597,10 @@ namespace LEML_StudioBr
                         }
                     }
 
-                    // Salva com a qualidade especificada
                     SaveJpeg(bitmap, sfd.FileName, quality);
                     bitmap.Dispose();
 
-                    MessageBox.Show("Exportação concluída com sucesso!", "Sucesso",
-                                  MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show("Exportação concluída com sucesso!", "Sucesso", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
         }
@@ -575,7 +622,6 @@ namespace LEML_StudioBr
             }
         }
 
-
         private Rectangle CalculateContentBounds()
         {
             try
@@ -593,7 +639,6 @@ namespace LEML_StudioBr
                     if (box != null)
                     {
                         Rectangle boxRect = box.GetZoomedRectangle(zoomLevel);
-
                         minX = Math.Min(minX, boxRect.Left);
                         minY = Math.Min(minY, boxRect.Top);
                         maxX = Math.Max(maxX, boxRect.Right);
@@ -605,7 +650,6 @@ namespace LEML_StudioBr
                 if (!hasContent)
                     return new Rectangle(0, 0, 800, 600);
 
-                // Adiciona margem
                 int margin = (int)(50 * zoomLevel);
                 return new Rectangle(
                     minX - margin,
@@ -621,65 +665,20 @@ namespace LEML_StudioBr
             }
         }
 
-        private void imprimirToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-
-
-        }
+        private void imprimirToolStripMenuItem_Click(object sender, EventArgs e) { }
 
         private void exportarToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            using (SaveFileDialog sfd = new SaveFileDialog())
-            {
-                sfd.Filter = "JPEG Images|*.jpg";
-                sfd.FileName = $"Diagrama_{DateTime.Now:yyyyMMdd_HHmmss}.jpg";
-
-                if (sfd.ShowDialog() == DialogResult.OK)
-                {
-                    // Calcula a área que contém todo o conteúdo
-                    Rectangle contentBounds = CalculateContentBounds();
-
-                    // Cria bitmap do tamanho do conteúdo
-                    using (Bitmap bitmap = new Bitmap(contentBounds.Width, contentBounds.Height))
-                    using (Graphics graphics = Graphics.FromImage(bitmap))
-                    {
-                        graphics.Clear(Color.White);
-                        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-                        // Ajusta a transformação para desenhar na posição correta
-                        graphics.TranslateTransform(-contentBounds.X, -contentBounds.Y);
-
-                        // Desenha o conteúdo
-                        _canvas.Draw(graphics, zoomLevel);
-
-                        // Salva a imagem
-                        bitmap.Save(sfd.FileName, ImageFormat.Jpeg);
-                    }
-
-                    MessageBox.Show("Exportação concluída com sucesso!", "LEMLStudio.BR", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-            }
+            ExportToJpg(false, 95);
         }
 
+        private void toolStripCBOConexao_Click(object sender, EventArgs e) { }
 
-        private void toolStripCBOConexao_Click(object sender, EventArgs e)
-        {
-
-
-        }
-
-
-
+        // Mantive este método vazio pois o ESC agora é gerenciado pelo ProcessCmdKey lá em cima
         private void pictureBox1_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
         {
-            if (e.KeyCode == Keys.Escape && !string.IsNullOrEmpty(_selectedRelationshipType))
-            {
-                CancelConnectionCreation();
-            }
         }
 
-        // Contrucao do botao de IA
-        // Campos necessarios? Ajustar source
         private void btnAgent_Click(object sender, EventArgs e)
         {
             info.Text = "Agente de IA";
@@ -692,7 +691,7 @@ namespace LEML_StudioBr
             {
                 if (formRelacao.ShowDialog() == DialogResult.OK)
                 {
-                    pictureBox1.Invalidate(); // ← Isso força o redesenho!
+                    pictureBox1.Invalidate();
                 }
             }
         }
@@ -726,12 +725,10 @@ namespace LEML_StudioBr
             }
         }
 
-
         private void SaveProjectToJson(string filePath)
         {
             try
             {
-                // 1. Prepara boxes
                 var boxes = _canvas.GetBoxes().Select(b => new
                 {
                     b.Id,
@@ -747,7 +744,6 @@ namespace LEML_StudioBr
                     Name = b.OriginalName
                 }).ToList();
 
-                // 2. Prepara conexões
                 var connections = _canvas.Connections.Select(c => new
                 {
                     SourceId = c.SourceBox?.Id ?? Guid.Empty,
@@ -758,7 +754,6 @@ namespace LEML_StudioBr
                     TargetCardinality = c.TargetCardinality ?? "1"
                 }).ToList();
 
-                // 3. Cria objeto final
                 var projectData = new
                 {
                     Boxes = boxes,
@@ -767,7 +762,6 @@ namespace LEML_StudioBr
                     Version = "1.0"
                 };
 
-                // 4. Converte para JSON e salva
                 string json = JsonConvert.SerializeObject(projectData, Formatting.Indented);
                 File.WriteAllText(filePath, json);
 
@@ -776,8 +770,7 @@ namespace LEML_StudioBr
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Erro ao salvar: {ex.Message}", "Erro",
-                              MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Erro ao salvar: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -787,8 +780,7 @@ namespace LEML_StudioBr
             {
                 if (!File.Exists(filePath))
                 {
-                    MessageBox.Show("Arquivo não encontrado!", "Erro",
-                                  MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show("Arquivo não encontrado!", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
@@ -799,8 +791,7 @@ namespace LEML_StudioBr
 
                 if (boxesArray == null || boxesArray.Count == 0)
                 {
-                    MessageBox.Show("Arquivo não contém elementos!", "Aviso",
-                                  MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("Arquivo não contém elementos!", "Aviso", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -809,12 +800,10 @@ namespace LEML_StudioBr
                 int loadedBoxes = 0;
                 int loadedConnections = 0;
 
-                // Primeiro: carregar todas as boxes
                 foreach (var boxToken in boxesArray)
                 {
                     try
                     {
-                        // Extrai os dados básicos - mantém como FLOAT
                         Guid id = boxToken["Id"]?.Value<Guid>() ?? Guid.NewGuid();
                         float posX = boxToken["PositionX"]?.Value<float>() ?? 0;
                         float posY = boxToken["PositionY"]?.Value<float>() ?? 0;
@@ -828,7 +817,6 @@ namespace LEML_StudioBr
 
                         Box box = null;
 
-                        // Cria o objeto do tipo correto - usando FLOAT nas posições
                         if (typeName.Contains("Elemento") || tipoAmbiente >= 10)
                         {
                             box = new Elemento((int)posX, (int)posY, originalName, tipoAmbiente);
@@ -837,27 +825,19 @@ namespace LEML_StudioBr
                         {
                             box = new ClassBox((int)posX, (int)posY, originalName, tipoAmbiente);
                         }
-                        else
+
+                        if (box != null)
                         {
-                            // Se não for nenhum tipo específico, cria uma Box genérica
-                            //box = new ClassBox((int)posX, (int)posY, originalName, tipoAmbiente);
+                            box.Id = id;
+                            box.TopText = topText;
+                            box.BottomText = bottomText;
+                            box.Width = width;
+                            box.Height = height;
+
+                            _canvas.AddBoxToList(box);
+                            boxDictionary[id] = box;
+                            loadedBoxes++;
                         }
-
-                        // Define as propriedades adicionais
-                        box.Id = id;
-                        box.TopText = topText;
-                        box.BottomText = bottomText;
-                        box.Width = width;
-                        box.Height = height;
-
-                        _canvas.AddBoxToList(box);
-                        boxDictionary[id] = box;
-                        loadedBoxes++;
-
-                        Debug.WriteLine($"✓ Box carregada: {box.OriginalName} " +
-                                       $"(Tipo: {box.GetType().Name}, " +
-                                       $"Pos: [{box.PositionX}, {box.PositionY}], " +
-                                       $"Top: '{box.TopText}', Bottom: '{box.BottomText}')");
                     }
                     catch (Exception ex)
                     {
@@ -866,7 +846,6 @@ namespace LEML_StudioBr
                     }
                 }
 
-                // Segundo: carregar as conexões
                 if (connectionsArray != null)
                 {
                     foreach (var connToken in connectionsArray)
@@ -880,21 +859,12 @@ namespace LEML_StudioBr
                             string sourceCardinality = connToken["SourceCardinality"]?.Value<string>() ?? "1";
                             string targetCardinality = connToken["TargetCardinality"]?.Value<string>() ?? "1";
 
-                            // Encontra as boxes correspondentes
                             if (boxDictionary.TryGetValue(sourceId, out Box sourceBox) &&
                                 boxDictionary.TryGetValue(targetId, out Box targetBox))
                             {
                                 _canvas.AddConnection(sourceBox, targetBox, relationshipType,
                                                     relationOrigin, sourceCardinality, targetCardinality);
                                 loadedConnections++;
-
-                                Debug.WriteLine($"✓ Conexão carregada: {sourceBox.OriginalName} → {targetBox.OriginalName}, " +
-                                               $"Tipo: {relationshipType}, " +
-                                               $"Cardinalidades: {sourceCardinality} → {targetCardinality}");
-                            }
-                            else
-                            {
-                                Debug.WriteLine($"✗ Boxes não encontradas para conexão: {sourceId} → {targetId}");
                             }
                         }
                         catch (Exception ex)
@@ -904,34 +874,28 @@ namespace LEML_StudioBr
                     }
                 }
 
-                // Atualiza a interface
                 pictureBox1.Invalidate();
                 UpdatePictureBoxSize();
 
-                MessageBox.Show($"Projeto carregado com sucesso!\n" +
-                               $"{loadedBoxes} elementos e {loadedConnections} conexões carregados",
+                MessageBox.Show($"Projeto carregado com sucesso!\n{loadedBoxes} elementos e {loadedConnections} conexões carregados",
                                "Sucesso", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Erro ao carregar: {ex.Message}", "Erro",
-                              MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Erro ao carregar: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
-
-       
 
         private void RemoveImageProperties(JToken token)
         {
             if (token is JContainer container)
             {
-                // Lista de propriedades para remover (adicionar todas as possíveis)
                 var propertiesToRemove = new List<string>
-        {
-            "Icon", "HeaderImage", "BitmapProperty", "ImageProperty",
-            "IconBase64", "HeaderImageBase64", "IsSelected",
-            "icon", "headerImage", "image", "bitmap" // versões em minúsculo também
-        };
+                {
+                    "Icon", "HeaderImage", "BitmapProperty", "ImageProperty",
+                    "IconBase64", "HeaderImageBase64", "IsSelected",
+                    "icon", "headerImage", "image", "bitmap"
+                };
 
                 foreach (JToken child in container.Children().ToList())
                 {
@@ -953,6 +917,5 @@ namespace LEML_StudioBr
                 }
             }
         }
-
     }
 }
