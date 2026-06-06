@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Drawing;
 using Newtonsoft.Json;
+using System.Drawing.Drawing2D;
 
 namespace LEML_StudioBr.Objetos
 {
@@ -215,65 +216,108 @@ namespace LEML_StudioBr.Objetos
         {
             using (Pen p = new Pen(Color.Black, 2))
             {
+                // Reseta as terminações para o padrão por segurança
+                p.StartCap = LineCap.Flat;
+                p.EndCap = LineCap.Flat;
+              
+
+                // Path para criar o losango de Agregação e Composição
+                GraphicsPath diamondPath = new GraphicsPath();
+                diamondPath.AddPolygon(new PointF[] {
+                    new PointF(0, 0),
+                    new PointF(-4, 4),
+                    new PointF(-8, 0),
+                    new PointF(-4, -4)
+                });
+
+                // Configura a caneta baseada na relação (Incluindo a Seta ou Losango)
                 switch (rel)
                 {
                     case "Ação":
                         p.Color = Color.Black;
-                        p.DashStyle = System.Drawing.Drawing2D.DashStyle.Solid;
+                        p.DashStyle = DashStyle.Solid;
+                        p.CustomEndCap = new AdjustableArrowCap(5, 5, true); // Seta preenchida
                         break;
 
                     case "Condição":
                         p.Color = Color.Black;
-                        p.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                        p.DashStyle = DashStyle.Dash;
+                        p.CustomEndCap = new AdjustableArrowCap(5, 5, false); // Seta vazada
                         break;
 
                     case "Associação":
                         p.Color = Color.Blue;
-                        p.DashStyle = System.Drawing.Drawing2D.DashStyle.Solid;
+                        p.DashStyle = DashStyle.Solid;
+                        p.EndCap = LineCap.ArrowAnchor; // Seta simples
                         break;
 
                     case "Agregação":
                         p.Color = Color.Green;
-                        p.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                        p.DashStyle = DashStyle.Dash;
+                        p.CustomEndCap = new CustomLineCap(null, diamondPath) { BaseInset = 8 }; // Losango vazado
                         break;
 
                     case "Composição":
                         p.Color = Color.Red;
-                        p.DashStyle = System.Drawing.Drawing2D.DashStyle.Solid;
+                        p.DashStyle = DashStyle.Solid;
                         p.Width = 3;
+                        var filledDiamond = new CustomLineCap(diamondPath, null) { BaseInset = 8 };
+                        filledDiamond.SetStrokeCaps(LineCap.Round, LineCap.Round);
+                        p.CustomEndCap = filledDiamond; // Losango preenchido
                         break;
 
                     case "Generalização":
                         p.Color = Color.Purple;
-                        p.DashStyle = System.Drawing.Drawing2D.DashStyle.DashDot;
+                        p.DashStyle = DashStyle.DashDot;
+                        GraphicsPath arrowPath = new GraphicsPath();
+                        arrowPath.AddPolygon(new PointF[] { new PointF(0, 0), new PointF(-6, 4), new PointF(-6, -4) });
+                        p.CustomEndCap = new CustomLineCap(null, arrowPath) { BaseInset = 6 }; // Seta triangular vazada
                         break;
                 }
 
-                // Encontra um elemento para desenhar as linhas (pode ser qualquer um)
+                // Encontra um elemento para desenhar as linhas
                 Elemento element = _boxes.FirstOrDefault(b => b is Elemento) as Elemento;
                 if (element == null) return;
 
+                // Controle da origem da relação: Inverte a seta (Caneta) se o fluxo for do Destino para a Origem
+                Pen drawPen = p;
+                Pen reversePen = null;
+
+                if (relOrigin == "target")
+                {
+                    reversePen = (Pen)p.Clone();
+                    reversePen.CustomStartCap = p.CustomEndCap;
+                    reversePen.CustomEndCap = p.CustomStartCap;
+                    reversePen.StartCap = p.EndCap;
+                    reversePen.EndCap = p.StartCap;
+                    drawPen = reversePen;
+                }
+
+                // Lógica de colisão e desenho da linha com DrawLines
                 if (b1.PositionX < b2.PositionX && b1.PositionX + b1.Width <= b2.PositionX)
                 {
-                    element.DrawLineB1LeftB2(b1, b2, g, p);
+                    element.DrawLineB1LeftB2(b1, b2, g, drawPen);
                 }
                 else if (b1.PositionX > b2.PositionX && b2.PositionX + b2.Width <= b1.PositionX)
                 {
-                    element.DrawLineB1RightB2(b1, b2, g, p);
+                    element.DrawLineB1RightB2(b1, b2, g, drawPen);
                 }
                 else if (b1.PositionY < b2.PositionY)
                 {
-                    element.DrawLineB1OverB2(b1, b2, g, p);
+                    element.DrawLineB1OverB2(b1, b2, g, drawPen);
                 }
                 else if (b1.PositionY > b2.PositionY)
                 {
-                    element.DrawLineB1UnderB2(b1, b2, g, p);
+                    element.DrawLineB1UnderB2(b1, b2, g, drawPen);
                 }
 
-                // Desenha o tipo de relação no meio da linha
-                p.DashStyle = System.Drawing.Drawing2D.DashStyle.Solid;
-                element.DrawAssociation(b1, b2, g, p, rel, relOrigin);
+                // Libera a caneta secundária caso tenha sido alocada
+                if (reversePen != null)
+                {
+                    reversePen.Dispose();
+                }
 
+                // Desenha as Multiplicidades da mesma maneira
                 element.DrawMultiplicity(b1, b2, g, srcCardinality, "source");
                 element.DrawMultiplicity(b1, b2, g, tgtCardinality, "target");
             }
