@@ -216,12 +216,9 @@ namespace LEML_StudioBr.Objetos
         {
             using (Pen p = new Pen(Color.Black, 2))
             {
-                // Reseta as terminações para o padrão por segurança
                 p.StartCap = LineCap.Flat;
                 p.EndCap = LineCap.Flat;
-              
 
-                // Path para criar o losango de Agregação e Composição
                 GraphicsPath diamondPath = new GraphicsPath();
                 diamondPath.AddPolygon(new PointF[] {
                     new PointF(0, 0),
@@ -230,31 +227,30 @@ namespace LEML_StudioBr.Objetos
                     new PointF(-4, -4)
                 });
 
-                // Configura a caneta baseada na relação (Incluindo a Seta ou Losango)
                 switch (rel)
                 {
                     case "Ação":
                         p.Color = Color.Black;
                         p.DashStyle = DashStyle.Solid;
-                        p.CustomEndCap = new AdjustableArrowCap(5, 5, true); // Seta preenchida
+                        p.CustomEndCap = new AdjustableArrowCap(5, 5, true);
                         break;
 
                     case "Condição":
                         p.Color = Color.Black;
                         p.DashStyle = DashStyle.Dash;
-                        p.CustomEndCap = new AdjustableArrowCap(5, 5, false); // Seta vazada
+                        p.CustomEndCap = new AdjustableArrowCap(5, 5, false);
                         break;
 
                     case "Associação":
                         p.Color = Color.Blue;
                         p.DashStyle = DashStyle.Solid;
-                        p.EndCap = LineCap.ArrowAnchor; // Seta simples
+                        p.EndCap = LineCap.ArrowAnchor;
                         break;
 
                     case "Agregação":
                         p.Color = Color.Green;
                         p.DashStyle = DashStyle.Dash;
-                        p.CustomEndCap = new CustomLineCap(null, diamondPath) { BaseInset = 8 }; // Losango vazado
+                        p.CustomEndCap = new CustomLineCap(null, diamondPath) { BaseInset = 8 };
                         break;
 
                     case "Composição":
@@ -263,7 +259,7 @@ namespace LEML_StudioBr.Objetos
                         p.Width = 3;
                         var filledDiamond = new CustomLineCap(diamondPath, null) { BaseInset = 8 };
                         filledDiamond.SetStrokeCaps(LineCap.Round, LineCap.Round);
-                        p.CustomEndCap = filledDiamond; // Losango preenchido
+                        p.CustomEndCap = filledDiamond;
                         break;
 
                     case "Generalização":
@@ -271,53 +267,35 @@ namespace LEML_StudioBr.Objetos
                         p.DashStyle = DashStyle.DashDot;
                         GraphicsPath arrowPath = new GraphicsPath();
                         arrowPath.AddPolygon(new PointF[] { new PointF(0, 0), new PointF(-6, 4), new PointF(-6, -4) });
-                        p.CustomEndCap = new CustomLineCap(null, arrowPath) { BaseInset = 6 }; // Seta triangular vazada
+                        p.CustomEndCap = new CustomLineCap(null, arrowPath) { BaseInset = 6 };
                         break;
                 }
 
-                // Encontra um elemento para desenhar as linhas
                 Elemento element = _boxes.FirstOrDefault(b => b is Elemento) as Elemento;
                 if (element == null) return;
 
-                // Controle da origem da relação: Inverte a seta (Caneta) se o fluxo for do Destino para a Origem
-                Pen drawPen = p;
-                Pen reversePen = null;
+                // --- O AJUSTE VISUAL ACONTECE AQUI ---
+                // Mude para "false" no futuro caso a seta fique invertida em outra ocasião
+                bool inverterSeta = true;
 
-                if (relOrigin == "target")
-                {
-                    reversePen = (Pen)p.Clone();
-                    reversePen.CustomStartCap = p.CustomEndCap;
-                    reversePen.CustomEndCap = p.CustomStartCap;
-                    reversePen.StartCap = p.EndCap;
-                    reversePen.EndCap = p.StartCap;
-                    drawPen = reversePen;
-                }
-
-                // Lógica de colisão e desenho da linha com DrawLines
                 if (b1.PositionX < b2.PositionX && b1.PositionX + b1.Width <= b2.PositionX)
                 {
-                    element.DrawLineB1LeftB2(b1, b2, g, drawPen);
+                    element.DrawLineB1LeftB2(b1, b2, g, p, inverterSeta);
                 }
                 else if (b1.PositionX > b2.PositionX && b2.PositionX + b2.Width <= b1.PositionX)
                 {
-                    element.DrawLineB1RightB2(b1, b2, g, drawPen);
+                    element.DrawLineB1RightB2(b1, b2, g, p, inverterSeta);
                 }
                 else if (b1.PositionY < b2.PositionY)
                 {
-                    element.DrawLineB1OverB2(b1, b2, g, drawPen);
+                    element.DrawLineB1OverB2(b1, b2, g, p, inverterSeta);
                 }
                 else if (b1.PositionY > b2.PositionY)
                 {
-                    element.DrawLineB1UnderB2(b1, b2, g, drawPen);
+                    element.DrawLineB1UnderB2(b1, b2, g, p, inverterSeta);
                 }
 
-                // Libera a caneta secundária caso tenha sido alocada
-                if (reversePen != null)
-                {
-                    reversePen.Dispose();
-                }
-
-                // Desenha as Multiplicidades da mesma maneira
+                // As multiplicidades continuam sendo desenhadas normalmente
                 element.DrawMultiplicity(b1, b2, g, srcCardinality, "source");
                 element.DrawMultiplicity(b1, b2, g, tgtCardinality, "target");
             }

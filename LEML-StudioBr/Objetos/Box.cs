@@ -44,8 +44,8 @@ namespace LEML_StudioBr.Objetos
         public object AnyImageProperty { get; set; }
 
 
-        protected int MinWidth => 200;
-        protected int MinHeight => 200;
+        protected int MinWidth => 100;
+        protected int MinHeight => 100;
         protected int MaxWidth => 1500;
         protected int MaxHeight => 800;
 
@@ -257,7 +257,7 @@ namespace LEML_StudioBr.Objetos
         {
             return $"{OriginalName}";
         }
-        public void DrawLineB1RightB2(Box b1, Box b2, Graphics g, Pen p)
+        public void DrawLineB1RightB2(Box b1, Box b2, Graphics g, Pen p, bool invertArrow = false)
         {
             int distanceX = (int)(b1.PositionX - (b2.PositionX + b2.Width));
 
@@ -268,11 +268,13 @@ namespace LEML_StudioBr.Objetos
 
             Point[] points = { pStart, pMid1, pMid2, pEnd };
 
-            p.LineJoin = LineJoin.Miter; // Garante a quina reta
+            if (invertArrow) Array.Reverse(points); // <--- Inverte o caminho da linha
+
+            p.LineJoin = LineJoin.Miter;
             g.DrawLines(p, points);
         }
 
-        public void DrawLineB1LeftB2(Box b1, Box b2, Graphics g, Pen p)
+        public void DrawLineB1LeftB2(Box b1, Box b2, Graphics g, Pen p, bool invertArrow = false)
         {
             int distanceX = (int)(b2.PositionX - (b1.PositionX + b1.Width));
 
@@ -283,11 +285,13 @@ namespace LEML_StudioBr.Objetos
 
             Point[] points = { pStart, pMid1, pMid2, pEnd };
 
+            if (invertArrow) Array.Reverse(points); // <--- Inverte o caminho da linha
+
             p.LineJoin = LineJoin.Miter;
             g.DrawLines(p, points);
         }
 
-        public void DrawLineB1OverB2(Box b1, Box b2, Graphics g, Pen p)
+        public void DrawLineB1OverB2(Box b1, Box b2, Graphics g, Pen p, bool invertArrow = false)
         {
             int distanceY = (int)(b2.PositionY - (b1.PositionY + b1.Height));
 
@@ -298,11 +302,13 @@ namespace LEML_StudioBr.Objetos
 
             Point[] points = { pStart, pMid1, pMid2, pEnd };
 
+            if (invertArrow) Array.Reverse(points); // <--- Inverte o caminho da linha
+
             p.LineJoin = LineJoin.Miter;
             g.DrawLines(p, points);
         }
 
-        public void DrawLineB1UnderB2(Box b1, Box b2, Graphics g, Pen p)
+        public void DrawLineB1UnderB2(Box b1, Box b2, Graphics g, Pen p, bool invertArrow = false)
         {
             int distanceY = (int)(b1.PositionY - (b2.PositionY + b2.Height));
 
@@ -312,6 +318,8 @@ namespace LEML_StudioBr.Objetos
             Point pEnd = new Point((int)(b2.PositionX + b2.Width / 2), (int)(b2.PositionY + b2.Height));
 
             Point[] points = { pStart, pMid1, pMid2, pEnd };
+
+            if (invertArrow) Array.Reverse(points); // <--- Inverte o caminho da linha
 
             p.LineJoin = LineJoin.Miter;
             g.DrawLines(p, points);
