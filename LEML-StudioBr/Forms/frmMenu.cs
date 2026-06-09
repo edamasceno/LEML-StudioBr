@@ -41,7 +41,7 @@ namespace LEML_StudioBr
         private Point panStartPoint = Point.Empty;
         private PointF panOffset = PointF.Empty;
 
-        // Variáveis da Borracha
+        
         private bool _modoBorracha = false;
         private Box _boxParaDesconectar = null;
 
@@ -51,32 +51,52 @@ namespace LEML_StudioBr
             _canvas = new Canvas();
             InitializeComponent();
 
-          
+            // 1. Liga a barra de rolagem no painel esquerdo para não cortar em telas menores
+            BarraOpcoes.Panel1.AutoScroll = true;
+
+            // 2. Criamos o novo GroupBox de Ferramentas
+            GroupBox groupBoxFerramentas = new GroupBox();
+            groupBoxFerramentas.Name = "groupBoxFerramentas";
+            groupBoxFerramentas.Text = "Ferramentas";
+            groupBoxFerramentas.Size = new Size(90, 100);
+
+            // Oculto no cálculo: groupBox2 começa no Y=241 e tem Height=757. (Total = 998).
+            // Colocamos no Y=1010 para dar um respiro logo abaixo dele!
+            groupBoxFerramentas.Location = new Point(9, 760);
+
+            // 3. Criamos o Botão Borracha
             Button btnBorracha = new Button();
-            btnBorracha.Text = "Borracha";
             btnBorracha.Name = "btnBorracha";
-            btnBorracha.Size = new Size(100, 40);
+            btnBorracha.Size = new Size(60, 60);
+            btnBorracha.Location = new Point(15, 25); // Posição DENTRO do groupBoxFerramentas
 
-            // Define a posição do botão (Ajuste o X e Y conforme o seu layout)
-            btnBorracha.Location = new Point(10, 800);
-
-            // Destaque visual
-            btnBorracha.BackColor = Color.LightCoral;
+            // Estilos visuais do botão
+            btnBorracha.BackColor = Color.Transparent;
             btnBorracha.FlatStyle = FlatStyle.Flat;
+            btnBorracha.FlatAppearance.BorderSize = 0;
+            btnBorracha.Cursor = Cursors.Hand;
+            btnBorracha.Image = Properties.Resources.borracha; // Sua imagem do .resx
+            btnBorracha.ImageAlign = ContentAlignment.MiddleCenter;
+            btnBorracha.Text = "";
+
+            ToolTip dicaBorracha = new ToolTip();
+            dicaBorracha.SetToolTip(btnBorracha, "Ferramenta Borracha: Apagar conexões");
 
             // Assina o evento de clique
             btnBorracha.Click += new EventHandler(this.btnBorracha_Click);
 
-            // Adiciona o botão na tela principal
-            this.Controls.Add(btnBorracha);
-            btnBorracha.BringToFront();
-          
+            // 4. Monta a estrutura (Botão -> GroupBox -> Painel Lateral)
+            groupBoxFerramentas.Controls.Add(btnBorracha);
+            BarraOpcoes.Panel1.Controls.Add(groupBoxFerramentas);
+
+            // Traz para frente por segurança
+            groupBoxFerramentas.BringToFront();
 
             ConfigurePictureBoxWithScroll();
             pictureBox1.Focus();
         }
 
-        
+
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
             if (keyData == Keys.Escape)
