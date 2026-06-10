@@ -123,6 +123,16 @@ namespace LEML_StudioBr.Properties {
         /// <summary>
         ///   Consulta um recurso localizado do tipo System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap impressora {
+            get {
+                object obj = ResourceManager.GetObject("impressora", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Consulta um recurso localizado do tipo System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap Information_logo {
             get {
                 object obj = ResourceManager.GetObject("Information_logo", resourceCulture);
@@ -176,6 +186,16 @@ namespace LEML_StudioBr.Properties {
         internal static System.Drawing.Bitmap StarEnd {
             get {
                 object obj = ResourceManager.GetObject("StarEnd", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Consulta um recurso localizado do tipo System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap verificado {
+            get {
+                object obj = ResourceManager.GetObject("verificado", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

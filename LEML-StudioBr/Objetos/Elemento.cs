@@ -123,6 +123,14 @@ namespace LEML_StudioBr.Objetos
                                 zoomedWidth / 2, zoomedHeight * 0.75f, _formatCenter);
                 }
             }
+            // Se o elemento foi sinalizado com erro, desenha uma borda vermelha grossa
+            if (this.HasError)
+            {
+                using (Pen errorPen = new Pen(Color.Red, 4 * zoomLevel)) 
+                {
+                    g.DrawRectangle(errorPen, 0, 0, zoomedWidth, zoomedHeight);
+                }
+            }
 
             g.ResetTransform();
         }

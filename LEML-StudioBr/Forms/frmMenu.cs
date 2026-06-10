@@ -8,8 +8,12 @@ using System.Drawing.Imaging;
 using System.IO;
 using System.Windows.Forms;
 using System.Xml.Schema;
+using PdfSharp.Pdf;
+using PdfSharp.Drawing;
+using PdfSharp.Drawing.Layout; 
 
 namespace LEML_StudioBr
+
 {
     [Serializable]
     public class ProjectData
@@ -48,6 +52,10 @@ namespace LEML_StudioBr
 
         public frmMenu()
         {
+            if (PdfSharp.Fonts.GlobalFontSettings.FontResolver == null)
+            {
+                PdfSharp.Fonts.GlobalFontSettings.FontResolver = new CustomFontResolver();
+            }
             _canvas = new Canvas();
             InitializeComponent();
 
@@ -58,7 +66,7 @@ namespace LEML_StudioBr
             GroupBox groupBoxFerramentas = new GroupBox();
             groupBoxFerramentas.Name = "groupBoxFerramentas";
             groupBoxFerramentas.Text = "Ferramentas";
-            groupBoxFerramentas.Size = new Size(90, 100);
+            groupBoxFerramentas.Size = new Size(90, 260);
 
             // Oculto no cálculo: groupBox2 começa no Y=241 e tem Height=757. (Total = 998).
             // Colocamos no Y=1010 para dar um respiro logo abaixo dele!
@@ -91,6 +99,54 @@ namespace LEML_StudioBr
 
             // Traz para frente por segurança
             groupBoxFerramentas.BringToFront();
+
+            // 5. Criamos o Botão de Exportar PDF
+            Button btnPdf = new Button();
+            btnPdf.Name = "btnPdf";
+            btnPdf.Size = new Size(60, 60);
+            btnPdf.Location = new Point(15, 95); 
+
+            btnPdf.BackColor = Color.Transparent;
+            btnPdf.FlatStyle = FlatStyle.Flat;
+            btnPdf.FlatAppearance.BorderSize = 0;
+            btnPdf.Cursor = Cursors.Hand;
+
+            
+            btnPdf.Image = Properties.Resources.impressora; 
+            btnPdf.Text = ""; 
+            btnPdf.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+            btnPdf.ForeColor = Color.DarkRed;
+
+            ToolTip dicaPdf = new ToolTip();
+            dicaPdf.SetToolTip(btnPdf, "Gerar Plano de Aula em PDF");
+
+            
+            btnPdf.Click += (s, ev) => ExportToPdf();
+
+         
+            groupBoxFerramentas.Controls.Add(btnPdf);
+
+            Button btnValidar = new Button();
+            btnValidar.Name = "btnValidar";
+            btnValidar.Size = new Size(60, 60);
+            btnValidar.Location = new Point(15, 165);
+            btnValidar.Image = Properties.Resources.verificado;
+            btnValidar.BackColor = Color.Transparent; 
+            btnValidar.FlatStyle = FlatStyle.Flat;
+            btnValidar.FlatAppearance.BorderSize = 0;
+            btnValidar.Cursor = Cursors.Hand;
+            btnValidar.Font = new Font("Segoe UI", 8, FontStyle.Bold);
+            btnValidar.Text = ""; 
+
+            ToolTip dicaValidar = new ToolTip();
+            dicaValidar.SetToolTip(btnValidar, "Analisar a coerência do Design Instrucional");
+
+            
+            btnValidar.Click += (s, ev) => ValidarModeloPedagogico();
+
+            groupBoxFerramentas.Controls.Add(btnValidar);
+
+
 
             ConfigurePictureBoxWithScroll();
             pictureBox1.Focus();
@@ -340,17 +396,22 @@ namespace LEML_StudioBr
             }
             else if (e.Button == MouseButtons.Right)
             {
-                // Verifica se clicou em alguma box para abrir menu
-                foreach (Box box in _canvas.GetBoxes())
+                // Pega a lista com as caixas
+                var caixas = _canvas.GetBoxes();
+
+                // LÊ DE TRÁS PARA FRENTE: Pega quem está na "Frente" da tela (Z-Index maior) primeiro!
+                for (int i = caixas.Count - 1; i >= 0; i--)
                 {
+                    Box box = caixas[i];
+
                     if (box.IsInCollision(e.X, e.Y))
                     {
                         _selectedBox = box;
                         clickPoint = new Point(e.X, e.Y);
 
-                        // CORREÇÃO: Menu de contexto descomentado!
+                        // Abre o menu de contexto
                         Contexto.Show(pictureBox1, e.Location);
-                        return;
+                        return; // Achou a caixa da frente, para de procurar!
                     }
                 }
                 _selectedBox = null;
@@ -358,9 +419,7 @@ namespace LEML_StudioBr
             }
         }
 
-        // ==========================================
-        // MÉTODOS DA BORRACHA
-        // ==========================================
+       
         private void btnBorracha_Click(object sender, EventArgs e)
         {
             // Alterna o estado da borracha ao clicar
@@ -424,7 +483,7 @@ namespace LEML_StudioBr
                 pictureBox1.Invalidate(); // Redesenha apagando a linha
             }
         }
-        // ==========================================
+       
 
         private void HandleConnectionSelection(int x, int y)
         {
@@ -458,6 +517,246 @@ namespace LEML_StudioBr
             }
 
             pictureBox1.Invalidate();
+        }
+
+        private void ValidarModeloPedagogico()
+        {
+            List<string> mensagensErro = new List<string>();
+
+            
+            foreach (var box in _canvas.GetBoxes())
+            {
+                box.HasError = false;
+            }
+
+            var elementos = _canvas.GetBoxes().OfType<Elemento>().ToList();
+            var conexoes = _canvas.Connections;
+
+            if (elementos.Count == 0)
+            {
+                MessageBox.Show("O diagrama está vazio. Adicione elementos para validar.", "Validação", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+           
+            bool temInicioFim = elementos.Any(e => e.TipoAmbiente == 20);
+            if (!temInicioFim)
+            {
+                mensagensErro.Add("• O diagrama não possui nenhum bloco de 'Início/Fim'. É obrigatório definir de onde a aula começa e onde ela termina.");
+            }
+
+            
+            foreach (var ele in elementos)
+            {
+                
+                if (ele.TipoAmbiente == 15) continue;
+
+                
+                bool temEntrada = conexoes.Any(c => c.SourceBox.Id == ele.Id);
+                bool temSaida = conexoes.Any(c => c.TargetBox.Id == ele.Id);
+                bool temConexao = temEntrada || temSaida;
+
+               
+                if (ele.TipoAmbiente == 20)
+                {
+                    if (!temConexao)
+                    {
+                        ele.HasError = true;
+                        mensagensErro.Add($"• O bloco de limite '{ele.OriginalName}' está solto. Ele deve estar conectado a algum artefato da aula.");
+                    }
+                    continue; 
+                }
+
+                
+                if (!temConexao)
+                {
+                    ele.HasError = true;
+                    mensagensErro.Add($"• O artefato '{ele.OriginalName}' ({ele.TopText}) está solto e não possui nenhuma ligação.");
+                    continue; 
+                }
+
+                
+                if (!temEntrada)
+                {
+                    ele.HasError = true;
+                    mensagensErro.Add($"• O fluxo inicia a partir de '{ele.OriginalName}' ({ele.TopText}), mas deve começar obrigatoriamente a partir de um bloco 'Início/Fim'.");
+                }
+
+                if (!temSaida)
+                {
+                    ele.HasError = true;
+                    mensagensErro.Add($"• O fluxo encerra abruptamente em '{ele.OriginalName}' ({ele.TopText}), mas deve ser finalizado ligando-o a um bloco 'Início/Fim'.");
+                }
+
+                
+                if (ele.TipoAmbiente == 12 || ele.TipoAmbiente == 13) 
+                {
+                    bool temFeedback = conexoes.Any(c =>
+                        (c.SourceBox.Id == ele.Id && c.TargetBox is Elemento t && t.TipoAmbiente == 14) ||
+                        (c.TargetBox.Id == ele.Id && c.SourceBox is Elemento s && s.TipoAmbiente == 14)
+                    );
+
+                    if (!temFeedback)
+                    {
+                        ele.HasError = true;
+                        mensagensErro.Add($"• O artefato '{ele.OriginalName}' ({ele.TopText}) não possui um 'Feedback' subsequente validando a ação do aluno.");
+                    }
+                }
+            }
+
+            
+            pictureBox1.Invalidate();
+
+          
+            if (mensagensErro.Count > 0)
+            {
+                string aviso = "Foram encontradas inconsistências no Design Instrucional:\n\n" + string.Join("\n\n", mensagensErro);
+                MessageBox.Show(aviso, "Validação do Modelo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            else
+            {
+                MessageBox.Show("Parabéns! O seu modelo pedagógico está consistente, possuindo início, fim e validações estruturais corretas.", "Validação do Modelo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        public void ExportToPdf()
+        {
+            using (SaveFileDialog sfd = new SaveFileDialog())
+            {
+                sfd.Filter = "Ficheiro PDF|*.pdf";
+                sfd.Title = "Exportar Plano de Aula (PDF)";
+                sfd.FileName = $"PlanoAula_LEML_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+
+                if (sfd.ShowDialog() == DialogResult.OK)
+                {
+                    try
+                    {
+                        // --- PREPARAÇÃO DA FOTO DO DIAGRAMA ---
+                        // Salva o estado atual da tela (pan e zoom)
+                        float zoomAntigo = zoomLevel;
+                        PointF panAntigo = panOffset;
+
+                        // Reseta a visão para garantir uma foto perfeita e alinhada
+                        zoomLevel = 1.0f;
+                        panOffset = PointF.Empty;
+                        UpdatePictureBoxSize();
+                        pictureBox1.Update(); // Força a renderização imediata da tela
+
+                        PdfDocument document = new PdfDocument();
+                        document.Info.Title = "Plano de Aula - LEML-StudioBr";
+
+                        PdfPage page = document.AddPage();
+                        XGraphics gfx = XGraphics.FromPdfPage(page);
+
+                        XFont fontTitle = new XFont("Segoe UI", 18, XFontStyleEx.Bold);
+                        XFont fontSubtitle = new XFont("Segoe UI", 14, XFontStyleEx.Bold);
+                        XFont fontNormal = new XFont("Segoe UI", 11, XFontStyleEx.Regular);
+
+                        int currentY = 40;
+                        gfx.DrawString("Plano de Aula - Design Instrucional (LEML)", fontTitle, XBrushes.DarkBlue,
+                                       new XRect(0, currentY, page.Width, 20), XStringFormats.Center);
+                        currentY += 50;
+
+                        // Captura a imagem do controle (Bypassa o bug do g.ResetTransform das suas classes)
+                        using (Bitmap fullBitmap = new Bitmap(pictureBox1.Width, pictureBox1.Height))
+                        {
+                            pictureBox1.DrawToBitmap(fullBitmap, new Rectangle(0, 0, fullBitmap.Width, fullBitmap.Height));
+
+                            // Calcula onde os elementos estão para recortar os espaços em branco
+                            Rectangle bounds = CalculateContentBounds();
+                            bounds.Inflate(40, 40); // Aplica uma margem
+
+                            // Garante que o recorte de segurança não ultrapasse os limites da imagem
+                            bounds.Intersect(new Rectangle(0, 0, fullBitmap.Width, fullBitmap.Height));
+
+                            if (bounds.Width > 0 && bounds.Height > 0)
+                            {
+                                // Recorta a imagem final limpa
+                                using (Bitmap croppedBitmap = fullBitmap.Clone(bounds, fullBitmap.PixelFormat))
+                                {
+                                    using (MemoryStream ms = new MemoryStream())
+                                    {
+                                        croppedBitmap.Save(ms, ImageFormat.Png);
+                                        ms.Position = 0;
+
+                                        XImage xImage = XImage.FromStream(ms);
+
+                                        double margin = 40;
+                                        double maxWidth = page.Width - (margin * 2);
+                                        double maxHeight = 350;
+
+                                        // Utiliza PointWidth/PointHeight que são os valores oficiais para escala em PDF
+                                        double scaleX = maxWidth / xImage.PointWidth;
+                                        double scaleY = maxHeight / xImage.PointHeight;
+                                        double scale = Math.Min(scaleX, scaleY);
+                                        if (scale > 1) scale = 1;
+
+                                        double drawWidth = xImage.PointWidth * scale;
+                                        double drawHeight = xImage.PointHeight * scale;
+                                        double drawX = (page.Width - drawWidth) / 2;
+
+                                        gfx.DrawImage(xImage, drawX, currentY, drawWidth, drawHeight);
+                                        currentY += (int)drawHeight + 40;
+                                    }
+                                }
+                            }
+                        }
+
+                        // --- RESTAURA A TELA ---
+                        // Devolve o zoom e o pan que o professor estava usando
+                        zoomLevel = zoomAntigo;
+                        panOffset = panAntigo;
+                        UpdatePictureBoxSize();
+                        pictureBox1.Invalidate();
+
+                        // 5. Lista e Detalha os Elementos Pedagógicos
+                        gfx.DrawString("Detalhamento das Atividades:", fontSubtitle, XBrushes.Black, 40, currentY);
+                        currentY += 30;
+
+                        var elementos = _canvas.GetBoxes().OfType<Elemento>().ToList();
+
+                        if (elementos.Count == 0)
+                        {
+                            gfx.DrawString("Nenhum artefato adicionado ao modelo.", fontNormal, XBrushes.Gray, 40, currentY);
+                        }
+                        else
+                        {
+                            foreach (var ele in elementos)
+                            {
+                                if (currentY > page.Height - 80)
+                                {
+                                    page = document.AddPage();
+                                    gfx = XGraphics.FromPdfPage(page);
+                                    currentY = 40;
+                                }
+
+                                string tipoArtefato = ele.OriginalName;
+                                string oQueFazer = string.IsNullOrEmpty(ele.TopText) ? "Não definido" : ele.TopText;
+                                string comoFazer = string.IsNullOrEmpty(ele.BottomText) ? "Não definido" : ele.BottomText;
+
+                                gfx.DrawString($"• {tipoArtefato}", fontSubtitle, XBrushes.SteelBlue, 40, currentY);
+                                currentY += 20;
+
+                                gfx.DrawString($"  O quê fazer: {oQueFazer}", fontNormal, XBrushes.Black, 40, currentY);
+                                currentY += 15;
+                                gfx.DrawString($"  Como fazer: {comoFazer}", fontNormal, XBrushes.Black, 40, currentY);
+
+                                currentY += 30;
+                            }
+                        }
+
+                        document.Save(sfd.FileName);
+                        MessageBox.Show("Plano de Aula exportado com sucesso!", "PDF Gerado", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                        // Abre o arquivo logo após salvar
+                        Process.Start(new ProcessStartInfo(sfd.FileName) { UseShellExecute = true });
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Ocorreu um erro ao gerar o PDF: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
         }
 
         private void CreateConnectionBetweenBoxes()
@@ -588,39 +887,65 @@ namespace LEML_StudioBr
         {
             using (SaveFileDialog sfd = new SaveFileDialog())
             {
-                sfd.Filter = "JPEG Images|*.jpg";
+                sfd.Filter = "Imagens JPEG|*.jpg";
                 sfd.Title = "Exportar Diagrama LEML";
                 sfd.FileName = $"Diagrama_{DateTime.Now:yyyyMMdd_HHmmss}.jpg";
 
                 if (sfd.ShowDialog() == DialogResult.OK)
                 {
-                    Bitmap bitmap;
-
-                    if (exportVisibleAreaOnly)
+                    try
                     {
-                        bitmap = new Bitmap(pictureBox1.Width, pictureBox1.Height);
-                        pictureBox1.DrawToBitmap(bitmap, new Rectangle(0, 0, bitmap.Width, bitmap.Height));
-                    }
-                    else
-                    {
-                        Rectangle bounds = CalculateContentBounds();
-                        bounds.Inflate(50, 50);
+                       
+                        float zoomAntigo = zoomLevel;
+                        PointF panAntigo = panOffset;
 
-                        bitmap = new Bitmap(bounds.Width, bounds.Height);
+                        
+                        zoomLevel = 1.0f;
+                        panOffset = PointF.Empty;
+                        UpdatePictureBoxSize();
+                        pictureBox1.Update(); 
 
-                        using (Graphics g = Graphics.FromImage(bitmap))
+                        
+                        using (Bitmap fullBitmap = new Bitmap(pictureBox1.Width, pictureBox1.Height))
                         {
-                            g.Clear(Color.White);
-                            g.TranslateTransform(-bounds.X, -bounds.Y);
-                            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                            _canvas.Draw(g, zoomLevel);
+                            pictureBox1.DrawToBitmap(fullBitmap, new Rectangle(0, 0, fullBitmap.Width, fullBitmap.Height));
+
+                           
+                            Rectangle bounds = CalculateContentBounds();
+                            bounds.Inflate(40, 40); 
+
+                          
+                            bounds.Intersect(new Rectangle(0, 0, fullBitmap.Width, fullBitmap.Height));
+
+                            if (bounds.Width > 0 && bounds.Height > 0)
+                            {
+                                
+                                using (Bitmap croppedBitmap = fullBitmap.Clone(bounds, fullBitmap.PixelFormat))
+                                {
+                                    SaveJpeg(croppedBitmap, sfd.FileName, quality);
+                                }
+                            }
+                            else
+                            {
+                                SaveJpeg(fullBitmap, sfd.FileName, quality);
+                            }
                         }
+
+                       
+                        zoomLevel = zoomAntigo;
+                        panOffset = panAntigo;
+                        UpdatePictureBoxSize();
+                        pictureBox1.Invalidate();
+
+                        MessageBox.Show("Imagem exportada com sucesso!", "Sucesso", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                       
+                        Process.Start(new ProcessStartInfo(sfd.FileName) { UseShellExecute = true });
                     }
-
-                    SaveJpeg(bitmap, sfd.FileName, quality);
-                    bitmap.Dispose();
-
-                    MessageBox.Show("Exportação concluída com sucesso!", "Sucesso", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Ocorreu um erro ao exportar a imagem: {ex.Message}", "Erro", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
                 }
             }
         }
@@ -685,7 +1010,10 @@ namespace LEML_StudioBr
             }
         }
 
-        private void imprimirToolStripMenuItem_Click(object sender, EventArgs e) { }
+        private void imprimirToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ExportToPdf();
+        }
 
         private void exportarToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -938,4 +1266,46 @@ namespace LEML_StudioBr
             }
         }
     }
+
+   
+    public class CustomFontResolver : PdfSharp.Fonts.IFontResolver
+    {
+        public string DefaultFontName => "Segoe UI";
+
+        public byte[] GetFont(string faceName)
+        {
+         
+            string fontPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), faceName + ".ttf");
+
+            if (File.Exists(fontPath))
+            {
+                return File.ReadAllBytes(fontPath);
+            }
+
+        
+            return File.ReadAllBytes(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "arial.ttf"));
+        }
+
+        public PdfSharp.Fonts.FontResolverInfo ResolveTypeface(string familyName, bool isBold, bool isItalic)
+        {
+         
+            if (familyName.Equals("Segoe UI", StringComparison.CurrentCultureIgnoreCase))
+            {
+                if (isBold && isItalic) return new PdfSharp.Fonts.FontResolverInfo("segoez");
+                if (isBold) return new PdfSharp.Fonts.FontResolverInfo("segoeb");
+                if (isItalic) return new PdfSharp.Fonts.FontResolverInfo("segoei");
+                return new PdfSharp.Fonts.FontResolverInfo("segoeui"); 
+            }
+
+           
+            if (isBold) return new PdfSharp.Fonts.FontResolverInfo("arialbd");
+            if (isItalic) return new PdfSharp.Fonts.FontResolverInfo("ariali");
+            return new PdfSharp.Fonts.FontResolverInfo("arial");
+        }
+    }
 }
+
+
+
+
+

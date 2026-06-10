@@ -26,6 +26,8 @@ namespace LEML_StudioBr.Objetos
 
         [JsonIgnore]
         public bool IsSelected { get; set; }
+        [JsonIgnore]
+        public bool HasError { get; set; } = false;
 
         [JsonIgnore]
         public Image Icon { get; set; }
