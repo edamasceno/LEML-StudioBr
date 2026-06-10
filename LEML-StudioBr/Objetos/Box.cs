@@ -249,8 +249,13 @@ namespace LEML_StudioBr.Objetos
 
         public bool IsInCollisionWithCorner(int x, int y)
         {
-            return x > PositionX + Width - 10 && x <= PositionX + Width
-                && y > PositionY + Height - 10 && y <= PositionY + Height;
+            // Aumentamos a área magnética (hitbox) para ser muito mais amigável ao mouse!
+            // 35 pixels para dentro da caixa e 15 pixels para fora (caso o professor clique um pouco para fora da borda)
+            int toleranciaInterna = 35;
+            int toleranciaExterna = 15;
+
+            return x >= (PositionX + Width) - toleranciaInterna && x <= (PositionX + Width) + toleranciaExterna
+                && y >= (PositionY + Height) - toleranciaInterna && y <= (PositionY + Height) + toleranciaExterna;
         }
 
         public void UpdateBoxName() => Name = OriginalName;

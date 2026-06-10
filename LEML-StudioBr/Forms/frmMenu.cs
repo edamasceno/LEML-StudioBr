@@ -316,17 +316,30 @@ namespace LEML_StudioBr
 
         private void pictureBox1_MouseDown(object sender, MouseEventArgs e)
         {
-           
             if (_modoBorracha || !string.IsNullOrEmpty(_selectedRelationshipType)) return;
 
             if (e.Button == MouseButtons.Left)
             {
-                
-                Box caixaClicada = null;
                 var caixas = _canvas.GetBoxes();
+
+                // FASE 1: Prioridade Máxima - Verificar se clicou no canto de redimensionamento de alguma caixa
                 for (int i = caixas.Count - 1; i >= 0; i--)
                 {
-                    if (caixas[i].IsInCollision(e.X, e.Y) || caixas[i].IsInCollisionWithCorner(e.X, e.Y))
+                    if (caixas[i].IsInCollisionWithCorner(e.X, e.Y))
+                    {
+                        // É um redimensionamento individual! Limpamos o grupo para focar na ação
+                        LimparMultiSelecao();
+                        _canvas.Select(e.X, e.Y);
+                        pictureBox1.Refresh();
+                        return; // Aborta o método aqui para que o MouseMove execute o redimensionamento puro
+                    }
+                }
+
+                // FASE 2: Se nenhum canto foi atingido, verifica colisão com o corpo para arrasto ou retângulo
+                Box caixaClicada = null;
+                for (int i = caixas.Count - 1; i >= 0; i--)
+                {
+                    if (caixas[i].IsInCollision(e.X, e.Y))
                     {
                         caixaClicada = caixas[i];
                         break;
@@ -335,7 +348,6 @@ namespace LEML_StudioBr
 
                 if (caixaClicada != null)
                 {
-                    
                     if (_caixasSelecionadas.Contains(caixaClicada))
                     {
                         _arrastandoGrupo = true;
@@ -343,7 +355,6 @@ namespace LEML_StudioBr
                     }
                     else
                     {
-                        
                         LimparMultiSelecao();
                         _canvas.Select(e.X, e.Y);
                         _caixasSelecionadas.Add(caixaClicada);
@@ -351,9 +362,8 @@ namespace LEML_StudioBr
                 }
                 else
                 {
-                  
                     LimparMultiSelecao();
-                    _canvas.Select(e.X, e.Y); 
+                    _canvas.Select(e.X, e.Y);
 
                     _desenhandoRetangulo = true;
                     _pontoInicioRetangulo = new Point(e.X, e.Y);

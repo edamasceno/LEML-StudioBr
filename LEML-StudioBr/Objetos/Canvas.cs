@@ -105,6 +105,8 @@ namespace LEML_StudioBr.Objetos
         {
             Unselect();
 
+            // FASE 1: Prioridade absoluta para o redimensionamento (Cantos)
+            // Varre todas as caixas procurando se o clique foi em algum canto de aumento
             for (int i = _boxes.Count - 1; i >= 0; i--)
             {
                 Box box = _boxes[i];
@@ -112,21 +114,22 @@ namespace LEML_StudioBr.Objetos
                 {
                     _selection = new ResizeSelection(box, x, y);
                     _manipulator.MoveToLast(i);
-
-                    // === MANTÉM O Z-INDEX ===
                     ReorderBoxes();
-
                     _selection.Select();
-                    return;
+                    return; // Encontrou o canto, ignora qualquer colisão de corpo que esteja por baixo
                 }
-                else if (box.IsInCollision(x, y))
+            }
+
+            // FASE 2: Seleção normal para arrasto (Corpo)
+            // Se nenhum canto foi clicado, verifica o clique no corpo das caixas
+            for (int i = _boxes.Count - 1; i >= 0; i--)
+            {
+                Box box = _boxes[i];
+                if (box.IsInCollision(x, y))
                 {
                     _selection = new MoveSelection(box, x, y);
                     _manipulator.MoveToLast(i);
-
-                    // === MANTÉM O Z-INDEX ===
                     ReorderBoxes();
-
                     _selection.Select();
                     return;
                 }
