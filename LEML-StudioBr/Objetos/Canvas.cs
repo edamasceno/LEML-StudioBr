@@ -112,6 +112,10 @@ namespace LEML_StudioBr.Objetos
                 {
                     _selection = new ResizeSelection(box, x, y);
                     _manipulator.MoveToLast(i);
+
+                    // === MANTÉM O Z-INDEX ===
+                    ReorderBoxes();
+
                     _selection.Select();
                     return;
                 }
@@ -119,6 +123,10 @@ namespace LEML_StudioBr.Objetos
                 {
                     _selection = new MoveSelection(box, x, y);
                     _manipulator.MoveToLast(i);
+
+                    // === MANTÉM O Z-INDEX ===
+                    ReorderBoxes();
+
                     _selection.Select();
                     return;
                 }
@@ -147,11 +155,20 @@ namespace LEML_StudioBr.Objetos
         public void AddBoxToList(Box box)
         {
             _boxes.Add(box);
+
+            // Força a organização do Z-Index logo ao adicionar
+            ReorderBoxes();
         }
 
         private void ReorderBoxes()
         {
+            // O OrderBy funciona como o Z-Index: 
+            // 0 = Ambientes (Fundo)
+            // 1 = Artefatos/Elementos (Frente)
             _boxes = _boxes.OrderBy(b => b is Elemento ? 1 : 0).ToList();
+
+            // Como a lista foi recriada pelo OrderBy, precisamos atualizar a referência do manipulador
+            _manipulator = new ListManipulator<Box>(_boxes);
         }
 
         public void BringElementToFront(Elemento elemento)
