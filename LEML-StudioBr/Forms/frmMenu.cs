@@ -49,6 +49,14 @@ namespace LEML_StudioBr
         private bool _modoBorracha = false;
         private Box _boxParaDesconectar = null;
 
+        // Variáveis para Seleção Múltipla e Arrasto em Grupo
+        private List<Box> _caixasSelecionadas = new List<Box>();
+        private bool _desenhandoRetangulo = false;
+        private Rectangle _retanguloSelecao = Rectangle.Empty;
+        private Point _pontoInicioRetangulo = Point.Empty;
+        private bool _arrastandoGrupo = false;
+        private Point _ultimoPontoDrag = Point.Empty;
+
 
         public frmMenu()
         {
@@ -162,9 +170,11 @@ namespace LEML_StudioBr
             groupBoxFerramentas.Controls.Add(btnValidar);
 
 
+            pictureBox1.MouseUp += pictureBox1_MouseUp;
 
             ConfigurePictureBoxWithScroll();
             pictureBox1.Focus();
+           
         }
 
 
@@ -270,20 +280,121 @@ namespace LEML_StudioBr
 
         private void pictureBox1_MouseDown(object sender, MouseEventArgs e)
         {
+            // Se estiver apagando ou ligando conexões, não faz seleção em grupo
+            if (_modoBorracha || !string.IsNullOrEmpty(_selectedRelationshipType)) return;
+
             if (e.Button == MouseButtons.Left)
             {
-                _canvas.Select(e.X, e.Y);
+                // Tenta encontrar se clicou em uma caixa (lendo de trás para frente para respeitar o Z-Index)
+                Box caixaClicada = null;
+                var caixas = _canvas.GetBoxes();
+                for (int i = caixas.Count - 1; i >= 0; i--)
+                {
+                    if (caixas[i].IsInCollision(e.X, e.Y) || caixas[i].IsInCollisionWithCorner(e.X, e.Y))
+                    {
+                        caixaClicada = caixas[i];
+                        break;
+                    }
+                }
+
+                if (caixaClicada != null)
+                {
+                    // Se clicou numa caixa que JÁ ESTÁ no grupo, prepara para arrastar todas juntas
+                    if (_caixasSelecionadas.Contains(caixaClicada))
+                    {
+                        _arrastandoGrupo = true;
+                        _ultimoPontoDrag = new Point(e.X, e.Y);
+                    }
+                    else
+                    {
+                        // Clicou numa caixa solta: limpa o grupo e seleciona só ela
+                        LimparMultiSelecao();
+                        _canvas.Select(e.X, e.Y);
+                    }
+                }
+                else
+                {
+                    // Clicou no vazio: Limpa a seleção atual e começa a desenhar o retângulo
+                    LimparMultiSelecao();
+                    _canvas.Select(e.X, e.Y); // Limpa seleções nativas do Canvas
+
+                    _desenhandoRetangulo = true;
+                    _pontoInicioRetangulo = new Point(e.X, e.Y);
+                    _retanguloSelecao = new Rectangle(e.X, e.Y, 0, 0);
+                }
                 pictureBox1.Refresh();
             }
         }
 
         private void pictureBox1_MouseMove(object sender, MouseEventArgs e)
         {
-            if (e.Button == MouseButtons.Left)
+            if (_arrastandoGrupo)
             {
-                _canvas.Move(e.X, e.Y);
+                // Calcula o deslocamento considerando o zoom
+                float deltaX = (e.X - _ultimoPontoDrag.X) / zoomLevel;
+                float deltaY = (e.Y - _ultimoPontoDrag.Y) / zoomLevel;
+
+                // Move todas as caixas selecionadas mantendo as posições relativas
+                foreach (var box in _caixasSelecionadas)
+                {
+                    box.PositionX += deltaX;
+                    box.PositionY += deltaY;
+                }
+
+                _ultimoPontoDrag = new Point(e.X, e.Y);
+                pictureBox1.Refresh();
             }
-            pictureBox1.Refresh();
+            else if (_desenhandoRetangulo)
+            {
+                // Desenha a caixa de seleção elástica (Rubberband)
+                int x = Math.Min(e.X, _pontoInicioRetangulo.X);
+                int y = Math.Min(e.Y, _pontoInicioRetangulo.Y);
+                int width = Math.Abs(e.X - _pontoInicioRetangulo.X);
+                int height = Math.Abs(e.Y - _pontoInicioRetangulo.Y);
+
+                _retanguloSelecao = new Rectangle(x, y, width, height);
+                pictureBox1.Refresh();
+            }
+            else if (e.Button == MouseButtons.Left && !_desenhandoRetangulo && !_arrastandoGrupo)
+            {
+                // Comportamento normal de mover UMA caixa (do Canvas original)
+                _canvas.Move(e.X, e.Y);
+                pictureBox1.Refresh();
+            }
+        }
+
+        private void pictureBox1_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (_arrastandoGrupo)
+            {
+                _arrastandoGrupo = false;
+            }
+            else if (_desenhandoRetangulo)
+            {
+                _desenhandoRetangulo = false;
+
+                // Ajusta o retângulo para a coordenada real (descontando o Pan da tela)
+                Rectangle rectTeste = new Rectangle(
+                    _retanguloSelecao.X - (int)panOffset.X,
+                    _retanguloSelecao.Y - (int)panOffset.Y,
+                    _retanguloSelecao.Width,
+                    _retanguloSelecao.Height);
+
+                // Verifica quais caixas foram capturadas
+                foreach (var box in _canvas.GetBoxes())
+                {
+                    Rectangle boxRect = box.GetZoomedRectangle(zoomLevel);
+
+                    if (rectTeste.IntersectsWith(boxRect) || rectTeste.Contains(boxRect))
+                    {
+                        _caixasSelecionadas.Add(box);
+                        box.Select();
+                    }
+                }
+
+                _retanguloSelecao = Rectangle.Empty; // Esconde o retângulo
+                pictureBox1.Refresh();
+            }
         }
 
         private void pictureBox1_Paint(object sender, PaintEventArgs e)
@@ -322,6 +433,46 @@ namespace LEML_StudioBr
 
            
             _canvas.Draw(e.Graphics, zoomLevel);
+
+
+            e.Graphics.ResetTransform();
+
+            if (_desenhandoRetangulo)
+            {
+                // Fundo translúcido azul
+                using (SolidBrush brush = new SolidBrush(Color.FromArgb(50, Color.DodgerBlue)))
+                {
+                    e.Graphics.FillRectangle(brush, _retanguloSelecao);
+                }
+
+                // Borda tracejada
+                using (Pen pen = new Pen(Color.DodgerBlue, 1.5f))
+                {
+                    pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                    e.Graphics.DrawRectangle(pen, _retanguloSelecao);
+                }
+            }
+
+            // Desenha borda de destaque no grupo selecionado
+            if (_caixasSelecionadas.Count > 1)
+            {
+                // Re-aplica a matriz para que as bordas de destaque acompanhem o zoom/pan
+                e.Graphics.TranslateTransform(panOffset.X, panOffset.Y);
+                if (zoomCenter == PointF.Empty) zoomCenter = new PointF(pictureBox1.Width / 2, pictureBox1.Height / 2);
+                e.Graphics.TranslateTransform(zoomCenter.X, zoomCenter.Y);
+                e.Graphics.ScaleTransform(zoomLevel, zoomLevel);
+                e.Graphics.TranslateTransform(-zoomCenter.X, -zoomCenter.Y);
+
+                using (Pen penHighlight = new Pen(Color.DodgerBlue, 3f))
+                {
+                    penHighlight.DashStyle = System.Drawing.Drawing2D.DashStyle.Dot;
+                    foreach (var box in _caixasSelecionadas)
+                    {
+                        Rectangle rect = box.GetZoomedRectangle(zoomLevel);
+                        e.Graphics.DrawRectangle(penHighlight, rect);
+                    }
+                }
+            }
         }
 
         private void btnAmb_SalaFisica_Click(object sender, EventArgs e)
@@ -1246,6 +1397,15 @@ namespace LEML_StudioBr
                     pictureBox1.Invalidate();
                 }
             }
+        }
+
+        private void LimparMultiSelecao()
+        {
+            foreach (var box in _caixasSelecionadas)
+            {
+                box.Unselect();
+            }
+            _caixasSelecionadas.Clear();
         }
 
         private void salvarToolStripMenuItem_Click(object sender, EventArgs e)
