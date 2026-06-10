@@ -59,48 +59,58 @@ namespace LEML_StudioBr
             _canvas = new Canvas();
             InitializeComponent();
 
-            // 1. Liga a barra de rolagem no painel esquerdo para não cortar em telas menores
             BarraOpcoes.Panel1.AutoScroll = true;
 
-            // 2. Criamos o novo GroupBox de Ferramentas
+            ToolStripMenuItem modelosMenu = new ToolStripMenuItem("Modelos Pedagógicos");
+
+            // Cria as opções do menu dropdown
+            ToolStripMenuItem optInvertida = new ToolStripMenuItem("Sala de Aula Invertida", null, CarregarTemplateInvertida);
+            ToolStripMenuItem optPbl = new ToolStripMenuItem("Aprendizagem Baseada em Problemas (PBL)", null, CarregarTemplatePBL);
+
+            // Adiciona as opções dentro do menu principal
+            modelosMenu.DropDownItems.Add(optInvertida);
+            modelosMenu.DropDownItems.Add(optPbl);
+
+            // Injeta o novo menu na barra superior do seu formulário
+            menuStrip1.Items.Add(modelosMenu);
+
             GroupBox groupBoxFerramentas = new GroupBox();
             groupBoxFerramentas.Name = "groupBoxFerramentas";
             groupBoxFerramentas.Text = "Ferramentas";
             groupBoxFerramentas.Size = new Size(90, 260);
 
-            // Oculto no cálculo: groupBox2 começa no Y=241 e tem Height=757. (Total = 998).
-            // Colocamos no Y=1010 para dar um respiro logo abaixo dele!
+           
             groupBoxFerramentas.Location = new Point(9, 760);
 
-            // 3. Criamos o Botão Borracha
+          
             Button btnBorracha = new Button();
             btnBorracha.Name = "btnBorracha";
             btnBorracha.Size = new Size(60, 60);
-            btnBorracha.Location = new Point(15, 25); // Posição DENTRO do groupBoxFerramentas
+            btnBorracha.Location = new Point(15, 25); 
 
-            // Estilos visuais do botão
+           
             btnBorracha.BackColor = Color.Transparent;
             btnBorracha.FlatStyle = FlatStyle.Flat;
             btnBorracha.FlatAppearance.BorderSize = 0;
             btnBorracha.Cursor = Cursors.Hand;
-            btnBorracha.Image = Properties.Resources.borracha; // Sua imagem do .resx
+            btnBorracha.Image = Properties.Resources.borracha; 
             btnBorracha.ImageAlign = ContentAlignment.MiddleCenter;
             btnBorracha.Text = "";
 
             ToolTip dicaBorracha = new ToolTip();
             dicaBorracha.SetToolTip(btnBorracha, "Ferramenta Borracha: Apagar conexões");
 
-            // Assina o evento de clique
+           
             btnBorracha.Click += new EventHandler(this.btnBorracha_Click);
 
-            // 4. Monta a estrutura (Botão -> GroupBox -> Painel Lateral)
+           
             groupBoxFerramentas.Controls.Add(btnBorracha);
             BarraOpcoes.Panel1.Controls.Add(groupBoxFerramentas);
 
-            // Traz para frente por segurança
+            
             groupBoxFerramentas.BringToFront();
 
-            // 5. Criamos o Botão de Exportar PDF
+            
             Button btnPdf = new Button();
             btnPdf.Name = "btnPdf";
             btnPdf.Size = new Size(60, 60);
@@ -159,14 +169,14 @@ namespace LEML_StudioBr
             {
                 bool interceptado = false;
 
-                // Cancela criação de conexão
+               
                 if (!string.IsNullOrEmpty(_selectedRelationshipType))
                 {
                     CancelConnectionCreation();
                     interceptado = true;
                 }
 
-                // Cancela a ferramenta da Borracha
+                
                 if (_modoBorracha)
                 {
                     _boxParaDesconectar?.Unselect();
@@ -178,7 +188,7 @@ namespace LEML_StudioBr
                     interceptado = true;
                 }
 
-                if (interceptado) return true; // Bloqueia propagação do ESC
+                if (interceptado) return true; 
             }
 
             return base.ProcessCmdKey(ref msg, keyData);
@@ -205,14 +215,14 @@ namespace LEML_StudioBr
                 info.Text = ("Selecione um tipo de ambiente antes de adicionar ao plano.");
                 return;
             }
-            else if (tipoAmbiente <= 4) // Elementos de ambientes
+            else if (tipoAmbiente <= 4) 
             {
                 Box box = new ClassBox(relativePosition.X, relativePosition.Y, info.Text, this.tipoAmbiente);
                 box.PositionX -= box.Width / 2;
                 box.PositionY -= box.Height / 2;
                 _canvas.AddBoxToList(box);
             }
-            else if (tipoAmbiente == 15) // Elemento do Agente de IA
+            else if (tipoAmbiente == 15) 
             {
                 Agente ag = (Agente)new Elemento(relativePosition.X, relativePosition.Y, info.Text, this.tipoAmbiente);
                 ag.PositionX -= ag.Width / 2;
@@ -227,7 +237,7 @@ namespace LEML_StudioBr
                 }
                 _canvas.AddBoxToList(ag);
             }
-            else // Outros elementos
+            else 
             {
                 Elemento ele = new Elemento(relativePosition.X, relativePosition.Y, info.Text, this.tipoAmbiente);
                 ele.PositionX -= ele.Width / 2;
@@ -249,7 +259,7 @@ namespace LEML_StudioBr
                 _canvas.AddBoxToList(ele);
             }
 
-            tipoAmbiente = 0; // Reset tipoAmbiente after adding a box
+            tipoAmbiente = 0; 
             info.Text = "";
         }
 
@@ -273,7 +283,7 @@ namespace LEML_StudioBr
 
         private void pictureBox1_Paint(object sender, PaintEventArgs e)
         {
-            // Desenha feedback visual para seleção de conexão
+          
             if (_firstSelectedBox != null)
             {
                 using (Pen highlightPen = new Pen(Color.Red, 2))
@@ -281,7 +291,7 @@ namespace LEML_StudioBr
                     Rectangle rect = _firstSelectedBox.GetZoomedRectangle(zoomLevel);
                     e.Graphics.DrawRectangle(highlightPen, rect);
 
-                    // Desenha texto indicando que está aguardando segunda seleção
+                   
                     using (Font font = new Font("Arial", 10, FontStyle.Bold))
                     using (Brush brush = new SolidBrush(Color.Red))
                     {
@@ -293,7 +303,7 @@ namespace LEML_StudioBr
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             e.Graphics.Clear(pictureBox1.BackColor);
 
-            // Aplica transformações de zoom e pan
+           
             e.Graphics.TranslateTransform(panOffset.X, panOffset.Y);
 
             if (zoomCenter == PointF.Empty)
@@ -305,7 +315,7 @@ namespace LEML_StudioBr
             e.Graphics.ScaleTransform(zoomLevel, zoomLevel);
             e.Graphics.TranslateTransform(-zoomCenter.X, -zoomCenter.Y);
 
-            // Desenha o conteúdo com zoom
+           
             _canvas.Draw(e.Graphics, zoomLevel);
         }
 
@@ -372,14 +382,14 @@ namespace LEML_StudioBr
 
         private void pictureBox1_MouseClick(object sender, MouseEventArgs e)
         {
-            // === INTERCEPTAÇÃO DA BORRACHA ===
+            
             if (_modoBorracha && e.Button == MouseButtons.Left)
             {
                 HandleBorrachaSelection(e.X, e.Y);
-                return; // Impede que a tela tente mover ou selecionar as boxes normalmente
+                return; 
             }
 
-            // Se estamos no modo de seleção de conexão
+            
             if (!string.IsNullOrEmpty(_selectedRelationshipType) && pictureBox1.Cursor == Cursors.Cross)
             {
                 HandleConnectionSelection(e.X, e.Y);
@@ -388,7 +398,7 @@ namespace LEML_StudioBr
 
             if (e.Button == MouseButtons.Left)
             {
-                // Lógica normal de clique esquerdo
+                
                 Point relativePosition = GetRelativeCursorPos();
                 this.clickPoint = new Point(e.X, e.Y);
                 _canvas.Select(e.X, e.Y);
@@ -396,10 +406,10 @@ namespace LEML_StudioBr
             }
             else if (e.Button == MouseButtons.Right)
             {
-                // Pega a lista com as caixas
+                
                 var caixas = _canvas.GetBoxes();
 
-                // LÊ DE TRÁS PARA FRENTE: Pega quem está na "Frente" da tela (Z-Index maior) primeiro!
+                
                 for (int i = caixas.Count - 1; i >= 0; i--)
                 {
                     Box box = caixas[i];
@@ -409,9 +419,9 @@ namespace LEML_StudioBr
                         _selectedBox = box;
                         clickPoint = new Point(e.X, e.Y);
 
-                        // Abre o menu de contexto
+                        
                         Contexto.Show(pictureBox1, e.Location);
-                        return; // Achou a caixa da frente, para de procurar!
+                        return;
                     }
                 }
                 _selectedBox = null;
@@ -422,22 +432,22 @@ namespace LEML_StudioBr
        
         private void btnBorracha_Click(object sender, EventArgs e)
         {
-            // Alterna o estado da borracha ao clicar
+            
             _modoBorracha = !_modoBorracha;
 
             if (_modoBorracha)
             {
-                // Desativa a criação de conexão para evitar conflito
+                
                 ResetConnectionSelection();
                 tipoAmbiente = 0;
 
                 _boxParaDesconectar = null;
-                pictureBox1.Cursor = Cursors.NoMove2D; // Muda o cursor
+                pictureBox1.Cursor = Cursors.NoMove2D; 
                 info.Text = "Borracha Ativa: Clique na primeira Box da conexão que deseja apagar.";
             }
             else
             {
-                // Desliga a borracha
+                
                 _boxParaDesconectar?.Unselect();
                 _boxParaDesconectar = null;
                 pictureBox1.Cursor = Cursors.Default;
@@ -459,14 +469,14 @@ namespace LEML_StudioBr
 
             if (_boxParaDesconectar == null)
             {
-                // Primeiro clique armazena a Origem/Destino
+             
                 _boxParaDesconectar = boxClicada;
                 _boxParaDesconectar.Select();
                 info.Text = $"Borracha: Box '{boxClicada.OriginalName}' selecionada. Agora clique na outra Box conectada.";
             }
             else
             {
-                // Segundo clique desfaz a conexão e limpa
+                
                 if (_boxParaDesconectar.Id != boxClicada.Id)
                 {
                     _canvas.RemoveConnection(_boxParaDesconectar, boxClicada);
@@ -480,7 +490,7 @@ namespace LEML_StudioBr
                 pictureBox1.Cursor = Cursors.Default;
                 info.Text = "";
 
-                pictureBox1.Invalidate(); // Redesenha apagando a linha
+                pictureBox1.Invalidate(); 
             }
         }
        
@@ -519,11 +529,128 @@ namespace LEML_StudioBr
             pictureBox1.Invalidate();
         }
 
+
+       
+        private void CarregarTemplateInvertida(object sender, EventArgs e)
+        {
+            if (_canvas.GetBoxes().Count > 0)
+            {
+                var result = MessageBox.Show("Deseja limpar o diagrama atual para carregar o modelo?",
+                    "Confirmar Modelo", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (result == DialogResult.No) return;
+            }
+
+            _canvas.ClearAll();
+
+            
+            ClassBox ambVirtual = new ClassBox(30, 80, "Espaço Virtual (Antes da Aula)", 3); // 3 = Assíncrono
+            ambVirtual.Width = 460;
+            ambVirtual.Height = 400;
+
+            ClassBox ambPresencial = new ClassBox(520, 80, "Espaço Presencial (Durante a Aula)", 1); // 1 = Sala Física
+            ambPresencial.Width = 750;
+            ambPresencial.Height = 400;
+
+            _canvas.AddBoxToList(ambVirtual);
+            _canvas.AddBoxToList(ambPresencial);
+
+            
+            Elemento inicio = new Elemento(40, 220, "Início", 20);
+            inicio.SetElemento("Início", "");
+
+            Elemento infoPrevia = new Elemento(300, 220, "Informação", 10);
+            infoPrevia.TopText = "Videoaula e Leituras";
+            infoPrevia.BottomText = "Estudo Prévio Individual";
+
+            Elemento atividade = new Elemento(600, 220, "Atividade", 12);
+            atividade.TopText = "Resolução de Problemas";
+            atividade.BottomText = "Trabalho em Grupo";
+
+            Elemento feedback = new Elemento(850, 220, "Feedback", 14);
+            feedback.TopText = "Alinhamento de Dúvidas";
+            feedback.BottomText = "Debate com o Professor";
+
+            Elemento fim = new Elemento(1100, 220, "Fim", 20);
+            fim.SetElemento("Fim", "");
+
+            _canvas.AddBoxToList(inicio);
+            _canvas.AddBoxToList(infoPrevia);
+            _canvas.AddBoxToList(atividade);
+            _canvas.AddBoxToList(feedback);
+            _canvas.AddBoxToList(fim);
+
+           
+            _canvas.AddConnection(infoPrevia, inicio, "Ação", "source", "1", "1");
+            _canvas.AddConnection(atividade, infoPrevia, "Ação", "source", "1", "1");
+            _canvas.AddConnection(feedback, atividade, "Ação", "source", "1", "1");
+            _canvas.AddConnection(fim, feedback, "Ação", "source", "1", "1");
+
+            
+            UpdatePictureBoxSize();
+            pictureBox1.Invalidate();
+        }
+
+       
+        private void CarregarTemplatePBL(object sender, EventArgs e)
+        {
+            if (_canvas.GetBoxes().Count > 0)
+            {
+                var result = MessageBox.Show("Deseja limpar o diagrama atual para carregar o modelo?",
+                    "Confirmar Modelo", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (result == DialogResult.No) return;
+            }
+
+            _canvas.ClearAll();
+
+            
+            ClassBox ambSala = new ClassBox(50, 80, "Laboratório / Sala de Aula", 1);
+            ambSala.Width = 1200; 
+            ambSala.Height = 400;
+            _canvas.AddBoxToList(ambSala);
+
+            
+            Elemento inicio = new Elemento(100, 220, "Início", 20);
+            inicio.SetElemento("Início", "");
+
+            Elemento dialogo = new Elemento(350, 220, "Diálogo", 11);
+            dialogo.TopText = "Apresentação do Problema";
+            dialogo.BottomText = "Brainstorming Inicial";
+
+            Elemento pratica = new Elemento(600, 220, "Prática", 13);
+            pratica.TopText = "Investigação e Pesquisa";
+            pratica.BottomText = "Desenho da Solução";
+
+            Elemento feedback = new Elemento(850, 220, "Feedback", 14);
+            feedback.TopText = "Apresentação dos Resultados";
+            feedback.BottomText = "Feedback da Banca/Docente";
+
+            Elemento fim = new Elemento(1100, 220, "Fim", 20);
+            fim.SetElemento("Fim", "");
+
+            _canvas.AddBoxToList(inicio);
+            _canvas.AddBoxToList(dialogo);
+            _canvas.AddBoxToList(pratica);
+            _canvas.AddBoxToList(feedback);
+            _canvas.AddBoxToList(fim);
+
+            
+            _canvas.AddConnection(dialogo, inicio, "Ação", "source", "1", "1");
+            _canvas.AddConnection(pratica, dialogo, "Ação", "source", "1", "1");
+            _canvas.AddConnection(feedback, pratica, "Ação", "source", "1", "1");
+            _canvas.AddConnection(fim, feedback, "Ação", "source", "1", "1");
+
+            
+            UpdatePictureBoxSize();
+            pictureBox1.Invalidate();
+        }
+
+
+
         private bool ValidarModeloPedagogico(bool mostrarMensagemSucesso = true)
         {
             List<string> mensagensErro = new List<string>();
 
-            // 1. Reseta o estado de erro de todas as caixas primeiro
+           
             foreach (var box in _canvas.GetBoxes())
             {
                 box.HasError = false;
@@ -538,14 +665,14 @@ namespace LEML_StudioBr
                 return false;
             }
 
-            // REGRA 1: Presença do bloco Início/Fim global
+            
             bool temInicioFim = elementos.Any(e => e.TipoAmbiente == 20);
             if (!temInicioFim)
             {
                 mensagensErro.Add("• O diagrama não possui nenhum bloco de 'Início/Fim'. É obrigatório definir de onde a aula começa e onde ela termina.");
             }
 
-            // AVALIAÇÃO INDIVIDUAL DE CADA ARTEFATO
+            
             foreach (var ele in elementos)
             {
                 if (ele.TipoAmbiente == 15) continue;
@@ -564,7 +691,7 @@ namespace LEML_StudioBr
                     continue;
                 }
 
-                // REGRA 2: Elementos totalmente soltos (Órfãos)
+                
                 if (!temConexao)
                 {
                     ele.HasError = true;
@@ -572,7 +699,7 @@ namespace LEML_StudioBr
                     continue;
                 }
 
-                // REGRA 3: Validação de Limites de Fluxo (Obrigatório Início e Fim nas conexões)
+                
                 if (!temEntrada)
                 {
                     ele.HasError = true;
@@ -585,7 +712,7 @@ namespace LEML_StudioBr
                     mensagensErro.Add($"• O fluxo encerra abruptamente em '{ele.OriginalName}' ({ele.TopText}), mas deve ser finalizado ligando-o a um bloco 'Início/Fim'.");
                 }
 
-                // REGRA 4: Prática/Atividade requer Feedback/Evidência
+                
                 if (ele.TipoAmbiente == 12 || ele.TipoAmbiente == 13)
                 {
                     bool temFeedback = conexoes.Any(c =>
@@ -601,15 +728,15 @@ namespace LEML_StudioBr
                 }
             }
 
-            // Força a tela a redesenhar para acender as bordas vermelhas
+           
             pictureBox1.Invalidate();
 
-            // Exibir o resultado final
+          
             if (mensagensErro.Count > 0)
             {
                 string aviso = "Não é possível prosseguir. Foram encontradas inconsistências no Design Instrucional:\n\n" + string.Join("\n\n", mensagensErro);
                 MessageBox.Show(aviso, "Validação do Modelo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false; // Retorna falso pois há erros
+                return false; 
             }
             else
             {
@@ -617,7 +744,7 @@ namespace LEML_StudioBr
                 {
                     MessageBox.Show("Parabéns! O seu modelo pedagógico está consistente, possuindo início, fim e validações estruturais corretas.", "Validação do Modelo", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
-                return true; // Retorna verdadeiro se o modelo for perfeito
+                return true; 
             }
         }
 
@@ -627,7 +754,7 @@ namespace LEML_StudioBr
             {
                 MessageBox.Show("Exportação cancelada. Por favor, corrija os erros apontados em vermelho no diagrama antes de gerar o PDF.",
                                 "Bloqueio de Exportação", MessageBoxButtons.OK, MessageBoxIcon.Stop);
-                return; // Aborta o método aqui
+                return; 
             }
             using (SaveFileDialog sfd = new SaveFileDialog())
             {
@@ -639,16 +766,15 @@ namespace LEML_StudioBr
                 {
                     try
                     {
-                        // --- PREPARAÇÃO DA FOTO DO DIAGRAMA ---
-                        // Salva o estado atual da tela (pan e zoom)
+                        
                         float zoomAntigo = zoomLevel;
                         PointF panAntigo = panOffset;
 
-                        // Reseta a visão para garantir uma foto perfeita e alinhada
+                        
                         zoomLevel = 1.0f;
                         panOffset = PointF.Empty;
                         UpdatePictureBoxSize();
-                        pictureBox1.Update(); // Força a renderização imediata da tela
+                        pictureBox1.Update(); 
 
                         PdfDocument document = new PdfDocument();
                         document.Info.Title = "Plano de Aula - LEML-StudioBr";
@@ -665,21 +791,21 @@ namespace LEML_StudioBr
                                        new XRect(0, currentY, page.Width, 20), XStringFormats.Center);
                         currentY += 50;
 
-                        // Captura a imagem do controle (Bypassa o bug do g.ResetTransform das suas classes)
+                       
                         using (Bitmap fullBitmap = new Bitmap(pictureBox1.Width, pictureBox1.Height))
                         {
                             pictureBox1.DrawToBitmap(fullBitmap, new Rectangle(0, 0, fullBitmap.Width, fullBitmap.Height));
 
-                            // Calcula onde os elementos estão para recortar os espaços em branco
+                            
                             Rectangle bounds = CalculateContentBounds();
-                            bounds.Inflate(40, 40); // Aplica uma margem
+                            bounds.Inflate(40, 40); 
 
-                            // Garante que o recorte de segurança não ultrapasse os limites da imagem
+                            
                             bounds.Intersect(new Rectangle(0, 0, fullBitmap.Width, fullBitmap.Height));
 
                             if (bounds.Width > 0 && bounds.Height > 0)
                             {
-                                // Recorta a imagem final limpa
+                                
                                 using (Bitmap croppedBitmap = fullBitmap.Clone(bounds, fullBitmap.PixelFormat))
                                 {
                                     using (MemoryStream ms = new MemoryStream())
@@ -693,7 +819,7 @@ namespace LEML_StudioBr
                                         double maxWidth = page.Width - (margin * 2);
                                         double maxHeight = 350;
 
-                                        // Utiliza PointWidth/PointHeight que são os valores oficiais para escala em PDF
+                                       
                                         double scaleX = maxWidth / xImage.PointWidth;
                                         double scaleY = maxHeight / xImage.PointHeight;
                                         double scale = Math.Min(scaleX, scaleY);
@@ -710,14 +836,13 @@ namespace LEML_StudioBr
                             }
                         }
 
-                        // --- RESTAURA A TELA ---
-                        // Devolve o zoom e o pan que o professor estava usando
+                      
                         zoomLevel = zoomAntigo;
                         panOffset = panAntigo;
                         UpdatePictureBoxSize();
                         pictureBox1.Invalidate();
 
-                        // 5. Lista e Detalha os Elementos Pedagógicos
+                    
                         gfx.DrawString("Detalhamento das Atividades:", fontSubtitle, XBrushes.Black, 40, currentY);
                         currentY += 30;
 
@@ -756,7 +881,7 @@ namespace LEML_StudioBr
                         document.Save(sfd.FileName);
                         MessageBox.Show("Plano de Aula exportado com sucesso!", "PDF Gerado", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                        // Abre o arquivo logo após salvar
+                        
                         Process.Start(new ProcessStartInfo(sfd.FileName) { UseShellExecute = true });
                     }
                     catch (Exception ex)
@@ -897,7 +1022,7 @@ namespace LEML_StudioBr
             {
                 MessageBox.Show("Exportação cancelada. Por favor, corrija os erros apontados em vermelho no diagrama antes de gerar a imagem.",
                                 "Bloqueio de Exportação", MessageBoxButtons.OK, MessageBoxIcon.Stop);
-                return; // Aborta o método aqui
+                return; 
             }
             using (SaveFileDialog sfd = new SaveFileDialog())
             {
@@ -1036,7 +1161,7 @@ namespace LEML_StudioBr
 
         private void toolStripCBOConexao_Click(object sender, EventArgs e) { }
 
-        // Mantive este método vazio pois o ESC agora é gerenciado pelo ProcessCmdKey lá em cima
+       
         private void pictureBox1_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
         {
         }
