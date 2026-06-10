@@ -142,7 +142,7 @@ namespace LEML_StudioBr
             dicaValidar.SetToolTip(btnValidar, "Analisar a coerência do Design Instrucional");
 
             
-            btnValidar.Click += (s, ev) => ValidarModeloPedagogico();
+            btnValidar.Click += (s, ev) => ValidarModeloPedagogico(true);
 
             groupBoxFerramentas.Controls.Add(btnValidar);
 
@@ -519,11 +519,11 @@ namespace LEML_StudioBr
             pictureBox1.Invalidate();
         }
 
-        private void ValidarModeloPedagogico()
+        private bool ValidarModeloPedagogico(bool mostrarMensagemSucesso = true)
         {
             List<string> mensagensErro = new List<string>();
 
-            
+            // 1. Reseta o estado de erro de todas as caixas primeiro
             foreach (var box in _canvas.GetBoxes())
             {
                 box.HasError = false;
@@ -535,28 +535,25 @@ namespace LEML_StudioBr
             if (elementos.Count == 0)
             {
                 MessageBox.Show("O diagrama está vazio. Adicione elementos para validar.", "Validação", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
+                return false;
             }
 
-           
+            // REGRA 1: Presença do bloco Início/Fim global
             bool temInicioFim = elementos.Any(e => e.TipoAmbiente == 20);
             if (!temInicioFim)
             {
                 mensagensErro.Add("• O diagrama não possui nenhum bloco de 'Início/Fim'. É obrigatório definir de onde a aula começa e onde ela termina.");
             }
 
-            
+            // AVALIAÇÃO INDIVIDUAL DE CADA ARTEFATO
             foreach (var ele in elementos)
             {
-                
                 if (ele.TipoAmbiente == 15) continue;
 
-                
                 bool temEntrada = conexoes.Any(c => c.SourceBox.Id == ele.Id);
                 bool temSaida = conexoes.Any(c => c.TargetBox.Id == ele.Id);
                 bool temConexao = temEntrada || temSaida;
 
-               
                 if (ele.TipoAmbiente == 20)
                 {
                     if (!temConexao)
@@ -564,18 +561,18 @@ namespace LEML_StudioBr
                         ele.HasError = true;
                         mensagensErro.Add($"• O bloco de limite '{ele.OriginalName}' está solto. Ele deve estar conectado a algum artefato da aula.");
                     }
-                    continue; 
+                    continue;
                 }
 
-                
+                // REGRA 2: Elementos totalmente soltos (Órfãos)
                 if (!temConexao)
                 {
                     ele.HasError = true;
                     mensagensErro.Add($"• O artefato '{ele.OriginalName}' ({ele.TopText}) está solto e não possui nenhuma ligação.");
-                    continue; 
+                    continue;
                 }
 
-                
+                // REGRA 3: Validação de Limites de Fluxo (Obrigatório Início e Fim nas conexões)
                 if (!temEntrada)
                 {
                     ele.HasError = true;
@@ -588,8 +585,8 @@ namespace LEML_StudioBr
                     mensagensErro.Add($"• O fluxo encerra abruptamente em '{ele.OriginalName}' ({ele.TopText}), mas deve ser finalizado ligando-o a um bloco 'Início/Fim'.");
                 }
 
-                
-                if (ele.TipoAmbiente == 12 || ele.TipoAmbiente == 13) 
+                // REGRA 4: Prática/Atividade requer Feedback/Evidência
+                if (ele.TipoAmbiente == 12 || ele.TipoAmbiente == 13)
                 {
                     bool temFeedback = conexoes.Any(c =>
                         (c.SourceBox.Id == ele.Id && c.TargetBox is Elemento t && t.TipoAmbiente == 14) ||
@@ -604,23 +601,34 @@ namespace LEML_StudioBr
                 }
             }
 
-            
+            // Força a tela a redesenhar para acender as bordas vermelhas
             pictureBox1.Invalidate();
 
-          
+            // Exibir o resultado final
             if (mensagensErro.Count > 0)
             {
-                string aviso = "Foram encontradas inconsistências no Design Instrucional:\n\n" + string.Join("\n\n", mensagensErro);
+                string aviso = "Não é possível prosseguir. Foram encontradas inconsistências no Design Instrucional:\n\n" + string.Join("\n\n", mensagensErro);
                 MessageBox.Show(aviso, "Validação do Modelo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false; // Retorna falso pois há erros
             }
             else
             {
-                MessageBox.Show("Parabéns! O seu modelo pedagógico está consistente, possuindo início, fim e validações estruturais corretas.", "Validação do Modelo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                if (mostrarMensagemSucesso)
+                {
+                    MessageBox.Show("Parabéns! O seu modelo pedagógico está consistente, possuindo início, fim e validações estruturais corretas.", "Validação do Modelo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                return true; // Retorna verdadeiro se o modelo for perfeito
             }
         }
 
         public void ExportToPdf()
         {
+            if (!ValidarModeloPedagogico(mostrarMensagemSucesso: false))
+            {
+                MessageBox.Show("Exportação cancelada. Por favor, corrija os erros apontados em vermelho no diagrama antes de gerar o PDF.",
+                                "Bloqueio de Exportação", MessageBoxButtons.OK, MessageBoxIcon.Stop);
+                return; // Aborta o método aqui
+            }
             using (SaveFileDialog sfd = new SaveFileDialog())
             {
                 sfd.Filter = "Ficheiro PDF|*.pdf";
@@ -885,6 +893,12 @@ namespace LEML_StudioBr
 
         public void ExportToJpg(bool exportVisibleAreaOnly = false, int quality = 95)
         {
+            if (!ValidarModeloPedagogico(mostrarMensagemSucesso: false))
+            {
+                MessageBox.Show("Exportação cancelada. Por favor, corrija os erros apontados em vermelho no diagrama antes de gerar a imagem.",
+                                "Bloqueio de Exportação", MessageBoxButtons.OK, MessageBoxIcon.Stop);
+                return; // Aborta o método aqui
+            }
             using (SaveFileDialog sfd = new SaveFileDialog())
             {
                 sfd.Filter = "Imagens JPEG|*.jpg";
