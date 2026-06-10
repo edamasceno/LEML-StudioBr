@@ -184,14 +184,12 @@ namespace LEML_StudioBr
             {
                 bool interceptado = false;
 
-               
                 if (!string.IsNullOrEmpty(_selectedRelationshipType))
                 {
                     CancelConnectionCreation();
                     interceptado = true;
                 }
 
-                
                 if (_modoBorracha)
                 {
                     _boxParaDesconectar?.Unselect();
@@ -203,7 +201,45 @@ namespace LEML_StudioBr
                     interceptado = true;
                 }
 
-                if (interceptado) return true; 
+                if (interceptado) return true;
+            }
+            // ==========================================
+            // === NOVO: INTERCEPTA A TECLA DELETE ===
+            // ==========================================
+            else if (keyData == Keys.Delete)
+            {
+                // Verifica se existe uma seleção múltipla (ou uma única caixa clicada)
+                if (_caixasSelecionadas.Count > 0)
+                {
+                    var result = MessageBox.Show($"Deseja excluir permanentemente {_caixasSelecionadas.Count} elemento(s)?",
+                                                 "Confirmar Exclusão", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+
+                    if (result == DialogResult.Yes)
+                    {
+                        // Usa .ToList() para criar uma cópia de segurança e não quebrar o loop enquanto remove
+                        foreach (var box in _caixasSelecionadas.ToList())
+                        {
+                            _canvas.RemoveBoxFromList(box);
+                        }
+                        LimparMultiSelecao();
+                        pictureBox1.Invalidate();
+                    }
+                    return true; // Bloqueia a tecla para que não faça mais nada
+                }
+                // Fallback: Caso o professor tenha selecionado uma caixa com o botão direito (menu de contexto)
+                else if (_selectedBox != null)
+                {
+                    var result = MessageBox.Show($"Deseja apagar o artefato '{_selectedBox.OriginalName}'?",
+                                                 "Confirmar Exclusão", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+
+                    if (result == DialogResult.Yes)
+                    {
+                        _canvas.RemoveBoxFromList(_selectedBox);
+                        _selectedBox = null;
+                        pictureBox1.Invalidate();
+                    }
+                    return true;
+                }
             }
 
             return base.ProcessCmdKey(ref msg, keyData);
@@ -280,12 +316,12 @@ namespace LEML_StudioBr
 
         private void pictureBox1_MouseDown(object sender, MouseEventArgs e)
         {
-            // Se estiver apagando ou ligando conexões, não faz seleção em grupo
+           
             if (_modoBorracha || !string.IsNullOrEmpty(_selectedRelationshipType)) return;
 
             if (e.Button == MouseButtons.Left)
             {
-                // Tenta encontrar se clicou em uma caixa (lendo de trás para frente para respeitar o Z-Index)
+                
                 Box caixaClicada = null;
                 var caixas = _canvas.GetBoxes();
                 for (int i = caixas.Count - 1; i >= 0; i--)
@@ -299,7 +335,7 @@ namespace LEML_StudioBr
 
                 if (caixaClicada != null)
                 {
-                    // Se clicou numa caixa que JÁ ESTÁ no grupo, prepara para arrastar todas juntas
+                    
                     if (_caixasSelecionadas.Contains(caixaClicada))
                     {
                         _arrastandoGrupo = true;
@@ -307,16 +343,17 @@ namespace LEML_StudioBr
                     }
                     else
                     {
-                        // Clicou numa caixa solta: limpa o grupo e seleciona só ela
+                        
                         LimparMultiSelecao();
                         _canvas.Select(e.X, e.Y);
+                        _caixasSelecionadas.Add(caixaClicada);
                     }
                 }
                 else
                 {
-                    // Clicou no vazio: Limpa a seleção atual e começa a desenhar o retângulo
+                  
                     LimparMultiSelecao();
-                    _canvas.Select(e.X, e.Y); // Limpa seleções nativas do Canvas
+                    _canvas.Select(e.X, e.Y); 
 
                     _desenhandoRetangulo = true;
                     _pontoInicioRetangulo = new Point(e.X, e.Y);
@@ -330,11 +367,11 @@ namespace LEML_StudioBr
         {
             if (_arrastandoGrupo)
             {
-                // Calcula o deslocamento considerando o zoom
+                
                 float deltaX = (e.X - _ultimoPontoDrag.X) / zoomLevel;
                 float deltaY = (e.Y - _ultimoPontoDrag.Y) / zoomLevel;
 
-                // Move todas as caixas selecionadas mantendo as posições relativas
+               
                 foreach (var box in _caixasSelecionadas)
                 {
                     box.PositionX += deltaX;
@@ -346,7 +383,7 @@ namespace LEML_StudioBr
             }
             else if (_desenhandoRetangulo)
             {
-                // Desenha a caixa de seleção elástica (Rubberband)
+                
                 int x = Math.Min(e.X, _pontoInicioRetangulo.X);
                 int y = Math.Min(e.Y, _pontoInicioRetangulo.Y);
                 int width = Math.Abs(e.X - _pontoInicioRetangulo.X);
@@ -357,7 +394,7 @@ namespace LEML_StudioBr
             }
             else if (e.Button == MouseButtons.Left && !_desenhandoRetangulo && !_arrastandoGrupo)
             {
-                // Comportamento normal de mover UMA caixa (do Canvas original)
+              
                 _canvas.Move(e.X, e.Y);
                 pictureBox1.Refresh();
             }
@@ -373,14 +410,14 @@ namespace LEML_StudioBr
             {
                 _desenhandoRetangulo = false;
 
-                // Ajusta o retângulo para a coordenada real (descontando o Pan da tela)
+              
                 Rectangle rectTeste = new Rectangle(
                     _retanguloSelecao.X - (int)panOffset.X,
                     _retanguloSelecao.Y - (int)panOffset.Y,
                     _retanguloSelecao.Width,
                     _retanguloSelecao.Height);
 
-                // Verifica quais caixas foram capturadas
+               
                 foreach (var box in _canvas.GetBoxes())
                 {
                     Rectangle boxRect = box.GetZoomedRectangle(zoomLevel);
@@ -392,7 +429,7 @@ namespace LEML_StudioBr
                     }
                 }
 
-                _retanguloSelecao = Rectangle.Empty; // Esconde o retângulo
+                _retanguloSelecao = Rectangle.Empty; 
                 pictureBox1.Refresh();
             }
         }
@@ -439,13 +476,12 @@ namespace LEML_StudioBr
 
             if (_desenhandoRetangulo)
             {
-                // Fundo translúcido azul
+              
                 using (SolidBrush brush = new SolidBrush(Color.FromArgb(50, Color.DodgerBlue)))
                 {
                     e.Graphics.FillRectangle(brush, _retanguloSelecao);
                 }
 
-                // Borda tracejada
                 using (Pen pen = new Pen(Color.DodgerBlue, 1.5f))
                 {
                     pen.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
@@ -453,10 +489,10 @@ namespace LEML_StudioBr
                 }
             }
 
-            // Desenha borda de destaque no grupo selecionado
+           
             if (_caixasSelecionadas.Count > 1)
             {
-                // Re-aplica a matriz para que as bordas de destaque acompanhem o zoom/pan
+                
                 e.Graphics.TranslateTransform(panOffset.X, panOffset.Y);
                 if (zoomCenter == PointF.Empty) zoomCenter = new PointF(pictureBox1.Width / 2, pictureBox1.Height / 2);
                 e.Graphics.TranslateTransform(zoomCenter.X, zoomCenter.Y);
