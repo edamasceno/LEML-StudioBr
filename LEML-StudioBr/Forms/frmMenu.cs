@@ -61,6 +61,11 @@ namespace LEML_StudioBr
 
             BarraOpcoes.Panel1.AutoScroll = true;
 
+            ToolStripMenuItem toolStripMenuItem_Editar = new ToolStripMenuItem("Editar");
+            toolStripMenuItem_Editar.Click += toolStripMenuItem_Editar_Click;
+            Contexto.Items.Insert(0, toolStripMenuItem_Editar);
+
+
             ToolStripMenuItem modelosMenu = new ToolStripMenuItem("Modelos Pedagógicos");
 
             // Cria as opções do menu dropdown
@@ -429,7 +434,67 @@ namespace LEML_StudioBr
             }
         }
 
-       
+        private void toolStripMenuItem_Editar_Click(object sender, EventArgs e)
+        {
+            if (_selectedBox == null) return;
+
+          
+            if (_selectedBox is Elemento ele && ele.TipoAmbiente != 20)
+            {
+               
+                string backupTop = ele.TopText;
+                string backupBottom = ele.BottomText;
+
+                using (frmInfoElemento frm = new frmInfoElemento(ele))
+                {
+                    if (frm.ShowDialog() == DialogResult.OK)
+                    {
+                        
+                        ele.TopText = frm.Result.TopText;
+                        ele.BottomText = frm.Result.BottomText;
+                    }
+                    else
+                    {
+                        
+                        ele.TopText = backupTop;
+                        ele.BottomText = backupBottom;
+                    }
+
+                    pictureBox1.Invalidate(); 
+                }
+            }
+            
+            else if (_selectedBox is Agente ag)
+            {
+                
+                string backupTop = ag.TopText;
+                string backupBottom = ag.BottomText;
+
+                using (frmInfoAgente frm = new frmInfoAgente(ag))
+                {
+                    if (frm.ShowDialog() == DialogResult.OK)
+                    {
+                        Agente editado = (Agente)frm.Result;
+                        ag.TopText = editado.TopText;
+                        ag.BottomText = editado.BottomText;
+                    }
+                    else
+                    {
+                        
+                        ag.TopText = backupTop;
+                        ag.BottomText = backupBottom;
+                    }
+
+                    pictureBox1.Invalidate();
+                }
+            }
+            else
+            {
+                MessageBox.Show("Este tipo de elemento não possui textos editáveis.", "Aviso", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+
         private void btnBorracha_Click(object sender, EventArgs e)
         {
             
@@ -559,7 +624,7 @@ namespace LEML_StudioBr
             inicio.SetElemento("Início", "");
 
             Elemento infoPrevia = new Elemento(300, 220, "Informação", 10);
-            infoPrevia.TopText = "Videoaula e Leituras";
+            infoPrevia.TopText = "Video aula e Leituras";
             infoPrevia.BottomText = "Estudo Prévio Individual";
 
             Elemento atividade = new Elemento(600, 220, "Atividade", 12);
