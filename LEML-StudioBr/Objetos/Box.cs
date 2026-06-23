@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Newtonsoft.Json;
-
+using System.Drawing.Drawing2D;
 
 
 namespace LEML_StudioBr.Objetos
@@ -26,6 +26,8 @@ namespace LEML_StudioBr.Objetos
 
         [JsonIgnore]
         public bool IsSelected { get; set; }
+        [JsonIgnore]
+        public bool HasError { get; set; } = false;
 
         [JsonIgnore]
         public Image Icon { get; set; }
@@ -44,9 +46,9 @@ namespace LEML_StudioBr.Objetos
         public object AnyImageProperty { get; set; }
 
 
-        protected int MinWidth => 200;
-        protected int MinHeight => 200;
-        protected int MaxWidth => 800;
+        protected int MinWidth => 100;
+        protected int MinHeight => 100;
+        protected int MaxWidth => 1500;
         protected int MaxHeight => 800;
 
         public Brush ColorBrush;
@@ -247,8 +249,13 @@ namespace LEML_StudioBr.Objetos
 
         public bool IsInCollisionWithCorner(int x, int y)
         {
-            return x > PositionX + Width - 10 && x <= PositionX + Width
-                && y > PositionY + Height - 10 && y <= PositionY + Height;
+            // Aumentamos a área magnética (hitbox) para ser muito mais amigável ao mouse!
+            // 35 pixels para dentro da caixa e 15 pixels para fora (caso o professor clique um pouco para fora da borda)
+            int toleranciaInterna = 35;
+            int toleranciaExterna = 15;
+
+            return x >= (PositionX + Width) - toleranciaInterna && x <= (PositionX + Width) + toleranciaExterna
+                && y >= (PositionY + Height) - toleranciaInterna && y <= (PositionY + Height) + toleranciaExterna;
         }
 
         public void UpdateBoxName() => Name = OriginalName;
@@ -257,192 +264,200 @@ namespace LEML_StudioBr.Objetos
         {
             return $"{OriginalName}";
         }
-        public void DrawLineB1RightB2(Box b1, Box b2, Graphics g, Pen p)
+        public void DrawLineB1RightB2(Box b1, Box b2, Graphics g, Pen p, bool invertArrow = false)
         {
-            int distanceX = (int) (b1.PositionX - (b2.PositionX + b2.Width));
-            Point p1 = new Point((int) b1.PositionX, (int) (b1.PositionY + b1.Height / 2));
-            Point p2 = new Point((int) (b2.PositionX + b2.Width), (int) (b2.PositionY + b2.Height / 2));
+            int distanceX = (int)(b1.PositionX - (b2.PositionX + b2.Width));
 
-            Point pt1 = new Point((int) (b2.PositionX + (distanceX / 2)), (int) (b2.PositionY + (b2.Height / 2)));
-            Point pt2 = new Point((int) (b1.PositionX - (distanceX / 2) + b1.Width), (int) (b1.PositionY + (b1.Height / 2)));
+            Point pStart = new Point((int)b1.PositionX, (int)(b1.PositionY + b1.Height / 2));
+            Point pMid1 = new Point((int)(b1.PositionX - (distanceX / 2)), (int)(b1.PositionY + b1.Height / 2));
+            Point pMid2 = new Point((int)(b1.PositionX - (distanceX / 2)), (int)(b2.PositionY + b2.Height / 2));
+            Point pEnd = new Point((int)(b2.PositionX + b2.Width), (int)(b2.PositionY + b2.Height / 2));
 
-            g.DrawLine(p, p1, pt2);
-            g.DrawLine(p, pt2, pt1);
-            g.DrawLine(p, p2, pt1);
+            Point[] points = { pStart, pMid1, pMid2, pEnd };
 
+            if (invertArrow) Array.Reverse(points); // <--- Inverte o caminho da linha
+
+            p.LineJoin = LineJoin.Miter;
+            g.DrawLines(p, points);
         }
 
-        public void DrawLineB1LeftB2(Box b1, Box b2, Graphics g, Pen p)
+        public void DrawLineB1LeftB2(Box b1, Box b2, Graphics g, Pen p, bool invertArrow = false)
         {
-            int distanceX = (int) (b1.PositionX - b2.PositionX + b2.Width);
-            Point p1 = new Point((int)(b1.PositionX + b1.Width), (int) (b1.PositionY + b1.Height / 2));
-            Point p2 = new Point((int) b2.PositionX, (int)(b2.PositionY + b2.Height / 2));
+            int distanceX = (int)(b2.PositionX - (b1.PositionX + b1.Width));
 
-            Point pt1 = new Point((int)((int)b2.PositionX + (distanceX / 2)), (int)((int)(b2.PositionY + (b2.Height / 2))));
-            Point pt2 = new Point((int)((int)b1.PositionX - (distanceX / 2) + (int)b1.Width), (int)((int)(b1.PositionY + (b1.Height / 2))));
+            Point pStart = new Point((int)(b1.PositionX + b1.Width), (int)(b1.PositionY + b1.Height / 2));
+            Point pMid1 = new Point((int)(b1.PositionX + b1.Width + (distanceX / 2)), (int)(b1.PositionY + b1.Height / 2));
+            Point pMid2 = new Point((int)(b1.PositionX + b1.Width + (distanceX / 2)), (int)(b2.PositionY + b2.Height / 2));
+            Point pEnd = new Point((int)b2.PositionX, (int)(b2.PositionY + b2.Height / 2));
 
-            g.DrawLine(p, p1, pt2);
-            g.DrawLine(p, pt2, pt1);
-            g.DrawLine(p, p2, pt1); 
+            Point[] points = { pStart, pMid1, pMid2, pEnd };
+
+            if (invertArrow) Array.Reverse(points); // <--- Inverte o caminho da linha
+
+            p.LineJoin = LineJoin.Miter;
+            g.DrawLines(p, points);
         }
 
-        public void DrawLineB1OverB2(Box b1, Box b2, Graphics g, Pen p)
+        public void DrawLineB1OverB2(Box b1, Box b2, Graphics g, Pen p, bool invertArrow = false)
         {
-            int distanceY = (int) b2.PositionY - (int) (b1.PositionY - b2.Height);
+            int distanceY = (int)(b2.PositionY - (b1.PositionY + b1.Height));
 
-            Point p1 = new Point((int)( b1.PositionX + b1.Width / 2), (int) (b1.PositionY + b1.Height));
-            Point p2 = new Point((int) (b2.PositionX + b2.Width / 2), (int) b2.PositionY);
+            Point pStart = new Point((int)(b1.PositionX + b1.Width / 2), (int)(b1.PositionY + b1.Height));
+            Point pMid1 = new Point((int)(b1.PositionX + b1.Width / 2), (int)(b1.PositionY + b1.Height + (distanceY / 2)));
+            Point pMid2 = new Point((int)(b2.PositionX + b2.Width / 2), (int)(b1.PositionY + b1.Height + (distanceY / 2)));
+            Point pEnd = new Point((int)(b2.PositionX + b2.Width / 2), (int)b2.PositionY);
 
-            Point pt1 = new Point((int) (b1.PositionX + b1.Width / 2), (int) (b1.PositionY + b1.Height + (distanceY / 2)));
-            Point pt2 = new Point((int) (b2.PositionX + b2.Width / 2), (int) (b2.PositionY - distanceY / 2));
+            Point[] points = { pStart, pMid1, pMid2, pEnd };
 
-            g.DrawLine(p, p1, pt1);
-            g.DrawLine(p, pt2, pt1);
-            g.DrawLine(p, pt2, p2);
+            if (invertArrow) Array.Reverse(points); // <--- Inverte o caminho da linha
+
+            p.LineJoin = LineJoin.Miter;
+            g.DrawLines(p, points);
         }
 
-        public void DrawLineB1UnderB2(Box b1, Box b2, Graphics g, Pen p)
+        public void DrawLineB1UnderB2(Box b1, Box b2, Graphics g, Pen p, bool invertArrow = false)
         {
-            int distanceY = (int) b1.PositionY - (int)(b1.Height - b2.PositionY);
+            int distanceY = (int)(b1.PositionY - (b2.PositionY + b2.Height));
 
-            Point p1 = new Point((int) (b1.PositionX + b1.Width / 2), (int) b1.PositionY);
-            Point p2 = new Point((int) (b2.PositionX + b2.Width / 2), (int)(b2.PositionY + b2.Height));
+            Point pStart = new Point((int)(b1.PositionX + b1.Width / 2), (int)b1.PositionY);
+            Point pMid1 = new Point((int)(b1.PositionX + b1.Width / 2), (int)(b1.PositionY - (distanceY / 2)));
+            Point pMid2 = new Point((int)(b2.PositionX + b2.Width / 2), (int)(b1.PositionY - (distanceY / 2)));
+            Point pEnd = new Point((int)(b2.PositionX + b2.Width / 2), (int)(b2.PositionY + b2.Height));
 
-            Point pt1 = new Point((int) (b1.PositionX + b1.Width / 2), (int)(b1.PositionY - distanceY / 2));
-            Point pt2 = new Point((int) (b2.PositionX + b2.Width / 2), (int)(b2.PositionY + b2.Height + (distanceY / 2)));
+            Point[] points = { pStart, pMid1, pMid2, pEnd };
 
+            if (invertArrow) Array.Reverse(points); // <--- Inverte o caminho da linha
 
-            g.DrawLine(p, p1, pt1);
-            g.DrawLine(p, pt2, pt1);
-            g.DrawLine(p, pt2, p2);
+            p.LineJoin = LineJoin.Miter;
+            g.DrawLines(p, points);
         }
         public void DrawLineThroughPoint(Box b1, Box b2, List<Point> points, Graphics g, Pen p)
         {
 
         }
-        public void DrawAssociation(Box b1, Box b2, Graphics g, Pen p, string rel, string relOrigin)
-        {
-            if (relOrigin == "source")
-            {
-                if (b1.PositionX < b2.PositionX && b1.PositionX + b1.Width <= b2.PositionX)
-                {
-                    Point[] points =
-                    {
-                        new Point((int) (b1.PositionX + b1.Width) ,(int) (b1.PositionY + b1.Height / 2)),
-                        new Point((int) (b1.PositionX + b1.Width + 15), (int) ( b1.PositionY + b1.Height / 2 + 8)),
-                        new Point((int) (b1.PositionX + b1.Width + 15), (int) (b1.PositionY + b1.Height / 2 -8))
-                    };
+     //   public void DrawAssociation(Box b1, Box b2, Graphics g, Pen p, string rel, string relOrigin)
+     //   {
+     //       if (relOrigin == "source")
+     //       {
+     //           if (b1.PositionX < b2.PositionX && b1.PositionX + b1.Width <= b2.PositionX)
+     //           {
+     //               Point[] points =
+     //               {
+     //                   new Point((int) (b1.PositionX + b1.Width) ,(int) (b1.PositionY + b1.Height / 2)),
+     //                   new Point((int) (b1.PositionX + b1.Width + 15), (int) ( b1.PositionY + b1.Height / 2 + 8)),
+     //                   new Point((int) (b1.PositionX + b1.Width + 15), (int) (b1.PositionY + b1.Height / 2 -8))
+     //               };
 
-                    g.DrawLine(p, points[0], points[1]);
-                    g.DrawLine(p, points[0], points[2]);
-                }
-                else if (b1.PositionX > b2.PositionX && b2.PositionX + b2.Width <= b1.PositionX)
-                {
-                    Point[] points =
-                    {
-                        new Point((int) b1.PositionX, (int) (b1.PositionY + b1.Height / 2)),
-                        new Point((int) b1.PositionX - 15, (int) (b1.PositionY + b1.Height / 2 + 8)),
-                        new Point((int) b1.PositionX - 15, (int) (b1.PositionY + b1.Height / 2 -8))
-                    };
+     //               g.DrawLine(p, points[0], points[1]);
+     //               g.DrawLine(p, points[0], points[2]);
+     //           }
+     //           else if (b1.PositionX > b2.PositionX && b2.PositionX + b2.Width <= b1.PositionX)
+     //           {
+     //               Point[] points =
+     //               {
+     //                   new Point((int) b1.PositionX, (int) (b1.PositionY + b1.Height / 2)),
+     //                   new Point((int) b1.PositionX - 15, (int) (b1.PositionY + b1.Height / 2 + 8)),
+     //                   new Point((int) b1.PositionX - 15, (int) (b1.PositionY + b1.Height / 2 -8))
+     //               };
                     
-                    g.DrawLine(p, points[0], points[1]);
-                    g.DrawLine(p, points[0], points[2]);
-                }
-                else if (b1.PositionY < b2.PositionY)
-                {
-                    Point[] points =
-                    {
-                        new Point((int)(b1.PositionX + b1.Width / 2),(int)(b1.PositionY + b1.Height)),
-                        new Point((int) (b1.PositionX + b1.Width / 2 + 8), (int) (b1.PositionY + b1.Height + 15)),
-                        new Point((int) (b1.PositionX + b1.Width / 2 - 8), (int) (b1.PositionY + b1.Height +15))
-                    };
+     //               g.DrawLine(p, points[0], points[1]);
+     //               g.DrawLine(p, points[0], points[2]);
+     //           }
+     //           else if (b1.PositionY < b2.PositionY)
+     //           {
+     //               Point[] points =
+     //               {
+     //                   new Point((int)(b1.PositionX + b1.Width / 2),(int)(b1.PositionY + b1.Height)),
+     //                   new Point((int) (b1.PositionX + b1.Width / 2 + 8), (int) (b1.PositionY + b1.Height + 15)),
+     //                   new Point((int) (b1.PositionX + b1.Width / 2 - 8), (int) (b1.PositionY + b1.Height +15))
+     //               };
                    
-                    g.DrawLine(p, points[0], points[1]);
-                    g.DrawLine(p, points[0], points[2]);
-                }
-                else if (b1.PositionY > b2.PositionY)
-                {
-                    Point[] points =
-                    {
-                        new Point((int)(b1.PositionX + b1.Width / 2),(int)(b1.PositionY)),
-                        new Point((int)(b1.PositionX + b1.Width / 2 + 8), (int) b1.PositionY - 15), //top
-                        new Point((int)(b1.PositionX + b1.Width / 2 - 8), (int) b1.PositionY -15) //bottom
-					};
+     //               g.DrawLine(p, points[0], points[1]);
+     //               g.DrawLine(p, points[0], points[2]);
+     //           }
+     //           else if (b1.PositionY > b2.PositionY)
+     //           {
+     //               Point[] points =
+     //               {
+     //                   new Point((int)(b1.PositionX + b1.Width / 2),(int)(b1.PositionY)),
+     //                   new Point((int)(b1.PositionX + b1.Width / 2 + 8), (int) b1.PositionY - 15), //top
+     //                   new Point((int)(b1.PositionX + b1.Width / 2 - 8), (int) b1.PositionY -15) //bottom
+					//};
                     
-                    g.DrawLine(p, points[0], points[1]);
-                    g.DrawLine(p, points[0], points[2]);
-                }
-            }
-            else if (relOrigin == "target")
-            {
-                if (b2.PositionX < b1.PositionX && b2.PositionX + b2.Width <= b1.PositionX)
-                {
-                    Point[] points =
-                    {
-                        new Point((int)((int)(b2.PositionX + b2.Width)),(int)(b2.PositionY + b2.Height / 2)),
-                        new Point((int) (b2.PositionX + b2.Width + 15), (int)(b2.PositionY + b2.Height / 2 + 8)), //top
-                        new Point((int) (b2.PositionX + b2.Width + 15), (int)(b2.PositionY + b2.Height / 2 -8)) //bottom
-					};
+     //               g.DrawLine(p, points[0], points[1]);
+     //               g.DrawLine(p, points[0], points[2]);
+     //           }
+     //       }
+     //       else if (relOrigin == "target")
+     //       {
+     //           if (b2.PositionX < b1.PositionX && b2.PositionX + b2.Width <= b1.PositionX)
+     //           {
+     //               Point[] points =
+     //               {
+     //                   new Point((int)((int)(b2.PositionX + b2.Width)),(int)(b2.PositionY + b2.Height / 2)),
+     //                   new Point((int) (b2.PositionX + b2.Width + 15), (int)(b2.PositionY + b2.Height / 2 + 8)), //top
+     //                   new Point((int) (b2.PositionX + b2.Width + 15), (int)(b2.PositionY + b2.Height / 2 -8)) //bottom
+					//};
                     
-                    g.DrawLine(p, points[0], points[1]);
-                    g.DrawLine(p, points[0], points[2]);
-                }
-                else if (b2.PositionX > b1.PositionX && b1.PositionX + b1.Width <= b2.PositionX)
-                {
-                    Point[] points =
-                    {
-                        new Point((int) b2.PositionX, (int) (b2.PositionY + b2.Height / 2)),
-                        new Point((int) b2.PositionX - 15, (int) (b2.PositionY + b2.Height / 2 + 8)),
-                        new Point((int) b2.PositionX - 15, (int) (b2.PositionY + b2.Height / 2 -8))
-                    };
+     //               g.DrawLine(p, points[0], points[1]);
+     //               g.DrawLine(p, points[0], points[2]);
+     //           }
+     //           else if (b2.PositionX > b1.PositionX && b1.PositionX + b1.Width <= b2.PositionX)
+     //           {
+     //               Point[] points =
+     //               {
+     //                   new Point((int) b2.PositionX, (int) (b2.PositionY + b2.Height / 2)),
+     //                   new Point((int) b2.PositionX - 15, (int) (b2.PositionY + b2.Height / 2 + 8)),
+     //                   new Point((int) b2.PositionX - 15, (int) (b2.PositionY + b2.Height / 2 -8))
+     //               };
                     
-                }
-                else if (b2.PositionY < b1.PositionY)
-                {
-                    Point[] points =
-                    {
-                        new Point((int) (b2.PositionX + b2.Width / 2), (int)(b2.PositionY + b2.Height)),
-                        new Point((int) (b2.PositionX + b2.Width / 2 + 8), (int) (b2.PositionY + b2.Height + 15)),
-                        new Point((int)((int)(b2.PositionX + b2.Width / 2 - 8)),(int)(b2.PositionY + b2.Height + 15))
-                    };
+     //           }
+     //           else if (b2.PositionY < b1.PositionY)
+     //           {
+     //               Point[] points =
+     //               {
+     //                   new Point((int) (b2.PositionX + b2.Width / 2), (int)(b2.PositionY + b2.Height)),
+     //                   new Point((int) (b2.PositionX + b2.Width / 2 + 8), (int) (b2.PositionY + b2.Height + 15)),
+     //                   new Point((int)((int)(b2.PositionX + b2.Width / 2 - 8)),(int)(b2.PositionY + b2.Height + 15))
+     //               };
                      
-                    g.DrawLine(p, points[0], points[1]);
-                    g.DrawLine(p, points[0], points[2]);
-                }
-                else if (b2.PositionY > b1.PositionY)
-                {
-                    Point[] points =
-                    {
-                        new Point((int)(b2.PositionX + b2.Width / 2),(int)(b2.PositionY)),
-                        new Point((int)(b2.PositionX + b2.Width / 2 + 8),(int)(b2.PositionY - 15)),
-                        new Point((int)((int)(b2.PositionX + b2.Width / 2 - 8)),(int)(b2.PositionY - 15))
-                    };
-                    /*
-					Point rotatePoint = new Point(b1.PositionX + b1.Width / 2, b1.PositionY + b1.Height);
+     //               g.DrawLine(p, points[0], points[1]);
+     //               g.DrawLine(p, points[0], points[2]);
+     //           }
+     //           else if (b2.PositionY > b1.PositionY)
+     //           {
+     //               Point[] points =
+     //               {
+     //                   new Point((int)(b2.PositionX + b2.Width / 2),(int)(b2.PositionY)),
+     //                   new Point((int)(b2.PositionX + b2.Width / 2 + 8),(int)(b2.PositionY - 15)),
+     //                   new Point((int)((int)(b2.PositionX + b2.Width / 2 - 8)),(int)(b2.PositionY - 15))
+     //               };
+     //               /*
+					//Point rotatePoint = new Point(b1.PositionX + b1.Width / 2, b1.PositionY + b1.Height);
 
-					double angle = Math.Atan2(rotatePoint.Y - points[0].Y, rotatePoint.X - points[0].X);
-					angle += (90 * (Math.PI / 180));
+					//double angle = Math.Atan2(rotatePoint.Y - points[0].Y, rotatePoint.X - points[0].X);
+					//angle += (90 * (Math.PI / 180));
 
-					Point rotPt1 = RotatePoint(points[1], points[0], angle);
-					Point rotPt2 = RotatePoint(points[2], points[0], angle);
+					//Point rotPt1 = RotatePoint(points[1], points[0], angle);
+					//Point rotPt2 = RotatePoint(points[2], points[0], angle);
 
-					g.DrawLine(p, rotPt1, points[0]);
-					g.DrawLine(p, rotPt2, points[0]);
-					*/
-                    g.DrawLine(p, points[0], points[1]);
-                    g.DrawLine(p, points[0], points[2]);
-                }
-            }
-        }
+					//g.DrawLine(p, rotPt1, points[0]);
+					//g.DrawLine(p, rotPt2, points[0]);
+					//*/
+     //               g.DrawLine(p, points[0], points[1]);
+     //               g.DrawLine(p, points[0], points[2]);
+     //           }
+     //       }
+     //   }
        
 
 
-        private Point RotatePoint(Point pt, Point pivot, double angle)
-        {
-            int x = pivot.X + (int)((pt.X - pivot.X) * Math.Cos(angle) - (pt.Y - pivot.Y) * Math.Sin(angle));
-            int y = pivot.Y + (int)((pt.X - pivot.X) * Math.Sin(angle) + (pt.Y - pivot.Y) * Math.Cos(angle));
-            return new Point(x, y);
-        }
+        //private Point RotatePoint(Point pt, Point pivot, double angle)
+        //{
+        //    int x = pivot.X + (int)((pt.X - pivot.X) * Math.Cos(angle) - (pt.Y - pivot.Y) * Math.Sin(angle));
+        //    int y = pivot.Y + (int)((pt.X - pivot.X) * Math.Sin(angle) + (pt.Y - pivot.Y) * Math.Cos(angle));
+        //    return new Point(x, y);
+        //}
 
         public void DrawMultiplicity(Box b1, Box b2, Graphics g, string cardinality, string origin)
         {

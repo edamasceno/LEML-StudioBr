@@ -107,7 +107,7 @@
             groupBox2.Controls.Add(btnInfo);
             groupBox2.Location = new Point(9, 241);
             groupBox2.Name = "groupBox2";
-            groupBox2.Size = new Size(90, 757);
+            groupBox2.Size = new Size(100, 757);
             groupBox2.TabIndex = 9;
             groupBox2.TabStop = false;
             groupBox2.Text = "Artefato";

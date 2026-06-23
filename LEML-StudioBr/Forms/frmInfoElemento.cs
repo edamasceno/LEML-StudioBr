@@ -13,32 +13,47 @@ namespace LEML_StudioBr.Forms
 {
     public partial class frmInfoElemento : Form
     {
-       public Elemento theEle;
+        public Elemento theEle;
+
+        public Elemento Result => theEle;
 
         public frmInfoElemento(Elemento Ele)
         {
             InitializeComponent();
             theEle = Ele;
+            LoadElemento(Ele);
             txtWhat.Text = Ele.TopText;
             txtHow.Text = Ele.BottomText;
         }
 
-        private void txtWhat_Enter(object sender, EventArgs e)
+        public virtual void LoadElemento(Elemento Ele)
+        {
+            txtWhat.Text = Ele.TopText;
+            txtHow.Text = Ele.BottomText;
+        }
+
+        public virtual void SaveElemento()
+        {
+            theEle.TopText = txtWhat.Text;
+            theEle.BottomText = txtHow.Text;
+        }
+
+        public virtual void txtWhat_Enter(object sender, EventArgs e)
         {
             (sender as TextBox).BackColor = Color.LightYellow;
         }
 
-        private void txtWhat_Leave(object sender, EventArgs e)
+        public virtual void txtWhat_Leave(object sender, EventArgs e)
         {
             (sender as TextBox).BackColor = Color.White;
         }
 
-        private void frmInfoElemento_Load(object sender, EventArgs e)
+        public virtual void frmInfoElemento_Load(object sender, EventArgs e)
         {
             
         }
 
-        private void btnCancelar_Click(object sender, EventArgs e)
+        public virtual void btnCancelar_Click(object sender, EventArgs e)
         {
             theEle.SetElemento("", "");
             
@@ -46,7 +61,7 @@ namespace LEML_StudioBr.Forms
             this.Close();
         }
 
-        private void btnConfirmar_Click(object sender, EventArgs e)
+        public virtual void btnConfirmar_Click(object sender, EventArgs e)
         {
             if (string.IsNullOrEmpty(txtWhat.Text))
             {

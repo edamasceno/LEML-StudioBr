@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Drawing;
 using Newtonsoft.Json;
+using System.Drawing.Drawing2D;
 
 namespace LEML_StudioBr.Objetos
 {
@@ -104,6 +105,8 @@ namespace LEML_StudioBr.Objetos
         {
             Unselect();
 
+            // FASE 1: Prioridade absoluta para o redimensionamento (Cantos)
+            // Varre todas as caixas procurando se o clique foi em algum canto de aumento
             for (int i = _boxes.Count - 1; i >= 0; i--)
             {
                 Box box = _boxes[i];
@@ -111,13 +114,22 @@ namespace LEML_StudioBr.Objetos
                 {
                     _selection = new ResizeSelection(box, x, y);
                     _manipulator.MoveToLast(i);
+                    ReorderBoxes();
                     _selection.Select();
-                    return;
+                    return; // Encontrou o canto, ignora qualquer colisão de corpo que esteja por baixo
                 }
-                else if (box.IsInCollision(x, y))
+            }
+
+            // FASE 2: Seleção normal para arrasto (Corpo)
+            // Se nenhum canto foi clicado, verifica o clique no corpo das caixas
+            for (int i = _boxes.Count - 1; i >= 0; i--)
+            {
+                Box box = _boxes[i];
+                if (box.IsInCollision(x, y))
                 {
                     _selection = new MoveSelection(box, x, y);
                     _manipulator.MoveToLast(i);
+                    ReorderBoxes();
                     _selection.Select();
                     return;
                 }
@@ -146,11 +158,20 @@ namespace LEML_StudioBr.Objetos
         public void AddBoxToList(Box box)
         {
             _boxes.Add(box);
+
+            // Força a organização do Z-Index logo ao adicionar
+            ReorderBoxes();
         }
 
         private void ReorderBoxes()
         {
+            // O OrderBy funciona como o Z-Index: 
+            // 0 = Ambientes (Fundo)
+            // 1 = Artefatos/Elementos (Frente)
             _boxes = _boxes.OrderBy(b => b is Elemento ? 1 : 0).ToList();
+
+            // Como a lista foi recriada pelo OrderBy, precisamos atualizar a referência do manipulador
+            _manipulator = new ListManipulator<Box>(_boxes);
         }
 
         public void BringElementToFront(Elemento elemento)
@@ -215,65 +236,86 @@ namespace LEML_StudioBr.Objetos
         {
             using (Pen p = new Pen(Color.Black, 2))
             {
+                p.StartCap = LineCap.Flat;
+                p.EndCap = LineCap.Flat;
+
+                GraphicsPath diamondPath = new GraphicsPath();
+                diamondPath.AddPolygon(new PointF[] {
+                    new PointF(0, 0),
+                    new PointF(-4, 4),
+                    new PointF(-8, 0),
+                    new PointF(-4, -4)
+                });
+
                 switch (rel)
                 {
                     case "Ação":
                         p.Color = Color.Black;
-                        p.DashStyle = System.Drawing.Drawing2D.DashStyle.Solid;
+                        p.DashStyle = DashStyle.Solid;
+                        p.CustomEndCap = new AdjustableArrowCap(5, 5, true);
                         break;
 
                     case "Condição":
                         p.Color = Color.Black;
-                        p.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                        p.DashStyle = DashStyle.Dash;
+                        p.CustomEndCap = new AdjustableArrowCap(5, 5, false);
                         break;
 
                     case "Associação":
                         p.Color = Color.Blue;
-                        p.DashStyle = System.Drawing.Drawing2D.DashStyle.Solid;
+                        p.DashStyle = DashStyle.Solid;
+                        p.EndCap = LineCap.ArrowAnchor;
                         break;
 
                     case "Agregação":
                         p.Color = Color.Green;
-                        p.DashStyle = System.Drawing.Drawing2D.DashStyle.Dash;
+                        p.DashStyle = DashStyle.Dash;
+                        p.CustomEndCap = new CustomLineCap(null, diamondPath) { BaseInset = 8 };
                         break;
 
                     case "Composição":
                         p.Color = Color.Red;
-                        p.DashStyle = System.Drawing.Drawing2D.DashStyle.Solid;
+                        p.DashStyle = DashStyle.Solid;
                         p.Width = 3;
+                        var filledDiamond = new CustomLineCap(diamondPath, null) { BaseInset = 8 };
+                        filledDiamond.SetStrokeCaps(LineCap.Round, LineCap.Round);
+                        p.CustomEndCap = filledDiamond;
                         break;
 
                     case "Generalização":
                         p.Color = Color.Purple;
-                        p.DashStyle = System.Drawing.Drawing2D.DashStyle.DashDot;
+                        p.DashStyle = DashStyle.DashDot;
+                        GraphicsPath arrowPath = new GraphicsPath();
+                        arrowPath.AddPolygon(new PointF[] { new PointF(0, 0), new PointF(-6, 4), new PointF(-6, -4) });
+                        p.CustomEndCap = new CustomLineCap(null, arrowPath) { BaseInset = 6 };
                         break;
                 }
 
-                // Encontra um elemento para desenhar as linhas (pode ser qualquer um)
                 Elemento element = _boxes.FirstOrDefault(b => b is Elemento) as Elemento;
                 if (element == null) return;
 
+                // --- O AJUSTE VISUAL ACONTECE AQUI ---
+                // Mude para "false" no futuro caso a seta fique invertida em outra ocasião
+                bool inverterSeta = true;
+
                 if (b1.PositionX < b2.PositionX && b1.PositionX + b1.Width <= b2.PositionX)
                 {
-                    element.DrawLineB1LeftB2(b1, b2, g, p);
+                    element.DrawLineB1LeftB2(b1, b2, g, p, inverterSeta);
                 }
                 else if (b1.PositionX > b2.PositionX && b2.PositionX + b2.Width <= b1.PositionX)
                 {
-                    element.DrawLineB1RightB2(b1, b2, g, p);
+                    element.DrawLineB1RightB2(b1, b2, g, p, inverterSeta);
                 }
                 else if (b1.PositionY < b2.PositionY)
                 {
-                    element.DrawLineB1OverB2(b1, b2, g, p);
+                    element.DrawLineB1OverB2(b1, b2, g, p, inverterSeta);
                 }
                 else if (b1.PositionY > b2.PositionY)
                 {
-                    element.DrawLineB1UnderB2(b1, b2, g, p);
+                    element.DrawLineB1UnderB2(b1, b2, g, p, inverterSeta);
                 }
 
-                // Desenha o tipo de relação no meio da linha
-                p.DashStyle = System.Drawing.Drawing2D.DashStyle.Solid;
-                element.DrawAssociation(b1, b2, g, p, rel, relOrigin);
-
+                // As multiplicidades continuam sendo desenhadas normalmente
                 element.DrawMultiplicity(b1, b2, g, srcCardinality, "source");
                 element.DrawMultiplicity(b1, b2, g, tgtCardinality, "target");
             }
